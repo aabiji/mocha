@@ -27,3 +27,6 @@ target_link_libraries(app glfw)
 add_library(glad libs/glad/src/glad.c)
 target_include_directories(glad PUBLIC libs/glad/include)
 target_link_libraries(app glad)
+
+# stb libraries
+target_include_directories(app PUBLIC libs/stb)

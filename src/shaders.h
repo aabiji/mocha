@@ -1,6 +1,6 @@
 #pragma once
 
-class Shaders {
+class Shader {
 public:
   void use();
   void assemble();

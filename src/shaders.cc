@@ -17,9 +17,9 @@ std::string readFile(std::string path) {
   return contents;
 }
 
-void Shaders::use() { glUseProgram(program); }
+void Shader::use() { glUseProgram(program); }
 
-void Shaders::load(int type, const char *path) {
+void Shader::load(int type, const char *path) {
   std::string source = readFile(path);
   if (source.empty()) {
     throw std::format("ERROR: Failed to read {}", path);
@@ -46,7 +46,7 @@ void Shaders::load(int type, const char *path) {
     geometryShader = shader;
 }
 
-void Shaders::assemble() {
+void Shader::assemble() {
   program = glCreateProgram();
 
   if (vertexShader != -1) {
@@ -75,10 +75,10 @@ void Shaders::assemble() {
   }
 }
 
-void Shaders::setInt(const char *name, int value) {
+void Shader::setInt(const char *name, int value) {
   glUniform1i(glGetUniformLocation(program, name), value);
 }
 
-void Shaders::setFloat(const char *name, float value) {
+void Shader::setFloat(const char *name, float value) {
   glUniform1f(glGetUniformLocation(program, name), value);
 }
