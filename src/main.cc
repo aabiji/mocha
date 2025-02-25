@@ -10,8 +10,6 @@
 
 #include "shaders.h"
 
-// FIXME: texture2 is drawn incorrectly
-
 void resizeCallback(GLFWwindow *window, int width, int height) {
   (void)window;
   glViewport(0, 0, width, height);
@@ -37,7 +35,6 @@ void keyCallback(GLFWwindow *window, int key, int scanCode, int action,
 
 int loadTexture(const char *path) {
   int w, h, n;
-  stbi_set_flip_vertically_on_load(true);
   unsigned char *pixels = stbi_load(path, &w, &h, &n, 0);
   if (pixels == nullptr)
     return -1;
@@ -46,18 +43,30 @@ int loadTexture(const char *path) {
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
 
-  int format = n == 4 ? GL_RGBA : GL_RGB;
-  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
-               pixels);
-  glGenerateMipmap(GL_TEXTURE_2D);
-
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+  int format = n == 4 ? GL_RGBA : GL_RGB;
+  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
+               pixels);
+  glGenerateMipmap(GL_TEXTURE_2D);
+
   free(pixels);
   return texture;
+}
+
+void debugCallback(unsigned int source, unsigned int type, unsigned int id,
+                   unsigned int severity, int length, const char *message,
+                   const void *param) {
+  (void)source;
+  (void)type;
+  (void)id;
+  (void)severity;
+  (void)length;
+  (void)param;
+  std::cout << message << "\n";
 }
 
 int main() {
@@ -82,6 +91,9 @@ int main() {
   glViewport(0, 0, width, height);
   glfwSetFramebufferSizeCallback(window, resizeCallback);
   glfwSetKeyCallback(window, keyCallback);
+
+  glEnable(GL_DEBUG_OUTPUT);
+  glDebugMessageCallback(debugCallback, 0);
 
   Shader shader;
   try {
@@ -110,12 +122,12 @@ int main() {
 
   // vec3 position, vec3 color, vec2 textureCoordinate
   float vertices[] = {
-      -1.0, 1.5,  0.0, 1.0, 0.0, 0.0, 0.0, 1.0, //
-      1.0,  1.5,  0.0, 0.0, 1.0, 0.0, 1.0, 1.0, //
-      -1.0, -1.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //
-      1.0,  -1.5, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, //
+      -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+       1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+       1.0,-1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+      -1.0,-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
   };
-  unsigned int indexes[] = {1, 2, 3, 0, 2, 1};
+  unsigned int indexes[] = {0, 1, 2, 0, 3, 2};
   unsigned int vao, vbo, ebo;
 
   glGenVertexArrays(1, &vao);
