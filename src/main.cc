@@ -5,6 +5,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -48,9 +52,7 @@ int loadTexture(const char *path) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  int format = n == 4 ? GL_RGBA : GL_RGB;
-  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
-               pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
   glGenerateMipmap(GL_TEXTURE_2D);
 
   free(pixels);
@@ -105,29 +107,20 @@ int main() {
     return -1;
   }
 
-  int texture1 = loadTexture("stewie.jpg");
-  if (texture1 == -1) {
+  int texture = loadTexture("stewie.jpg");
+  if (texture == -1) {
     std::cout << "Error loading stewie.jpg\n";
     return -1;
   }
-  int texture2 = loadTexture("curie.jpg");
-  if (texture2 == -1) {
-    std::cout << "Error loading curie.jpg\n";
-    return -1;
-  }
 
-  shader.use();
-  shader.setInt("texture1", 0);
-  shader.setInt("texture2", 1);
-
-  // vec3 position, vec3 color, vec2 textureCoordinate
   float vertices[] = {
-      -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-       1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-       1.0,-1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
-      -1.0,-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+       0.5, 0.5, 0.0, 1.0, 0.0,
+       0.5,-0.5, 0.0, 1.0, 1.0,
+      -0.5,-0.5, 0.0, 0.0, 1.0,
+      -0.5, 0.5, 0.0, 0.0, 0.0
   };
-  unsigned int indexes[] = {0, 1, 2, 0, 3, 2};
+  unsigned int indexes[] = { 0, 1, 3, 1, 2, 3 };
+
   unsigned int vao, vbo, ebo;
 
   glGenVertexArrays(1, &vao);
@@ -136,31 +129,39 @@ int main() {
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                         (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        (void *)(6 * sizeof(float)));
-  glEnableVertexAttribArray(2);
 
   glGenBuffers(1, &ebo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexes), indexes,
-               GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexes), indexes, GL_STATIC_DRAW);
+
+  // scale,rotate,translate --> matrix multipliation reads RIGHT TO LEFT (not communative)
+  glm::mat4 transform1 = glm::mat4(1.0);
+  transform1 = glm::rotate(transform1, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+  transform1 = glm::scale(transform1, glm::vec3(0.5, 0.5, 0.5));
+  transform1 = glm::translate(transform1, glm::vec3(1.0, 1.0, 0.0));
 
   while (!glfwWindowShouldClose(window)) {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture2);
+    glBindTexture(GL_TEXTURE_2D, texture);
 
     shader.use();
+    shader.setInt("texture1", 0);
     glBindVertexArray(vao);
+
+    shader.setMatrix("transform", glm::value_ptr(transform1));
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glm::mat4 transform2 = glm::mat4(1.0);
+    transform2 = glm::rotate(transform2, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
+    shader.setMatrix("transform", glm::value_ptr(transform2));
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     glfwSwapBuffers(window);

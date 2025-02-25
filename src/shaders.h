@@ -7,6 +7,7 @@ public:
   void load(int type, const char *path);
   void setInt(const char *name, int value);
   void setFloat(const char *name, float value);
+  void setMatrix(const char *name, float *matrix);
 
 private:
   int vertexShader = -1;
