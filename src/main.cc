@@ -6,21 +6,24 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include "shaders.h"
+#include "camera.h"
+#include "shader.h"
+
+bool firstCapture = false;
+double lastX = 400, lastY = 300;
+Camera camera(glm::vec3(0.0, 0.0, 5.0), glm::vec3(0.0, 1.0, 0.0), 0.1);
 
 void resizeCallback(GLFWwindow *window, int width, int height) {
   (void)window;
   glViewport(0, 0, width, height);
 }
 
-void keyCallback(GLFWwindow *window, int key, int scanCode, int action,
-                 int mods) {
+void keyCallback(GLFWwindow *window, int key, int scanCode, int action, int mods) {
   (void)mods;
   (void)scanCode;
 
@@ -35,6 +38,26 @@ void keyCallback(GLFWwindow *window, int key, int scanCode, int action,
     int newMode = polygonMode[0] == GL_LINE ? GL_FILL : GL_LINE;
     glPolygonMode(GL_FRONT_AND_BACK, newMode);
   }
+}
+
+void mouseCallback(GLFWwindow *window, double x, double y) {
+  (void)window;
+
+  if (firstCapture) {
+    firstCapture = true;
+    lastX = x;
+    lastY = y;
+  }
+
+  camera.rotate(x - lastX, lastY - y);
+  lastX = x;
+  lastY = y;
+}
+
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
+  (void)window;
+  (void)xoffset;
+  camera.zoom(yoffset);
 }
 
 int loadTexture(const char *path) {
@@ -78,6 +101,7 @@ int main() {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   int width = 800, height = 600;
+  const double aspectRatio = (float)width / (float)height;
   GLFWwindow *window = glfwCreateWindow(width, height, "App", nullptr, nullptr);
   if (window == nullptr) {
     std::cout << "Couldn't create a window\n";
@@ -93,9 +117,12 @@ int main() {
   glViewport(0, 0, width, height);
   glfwSetFramebufferSizeCallback(window, resizeCallback);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetCursorPosCallback(window, mouseCallback);
+  glfwSetScrollCallback(window, scrollCallback);
 
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(debugCallback, 0);
+  glEnable(GL_DEPTH_TEST);
 
   Shader shader;
   try {
@@ -114,14 +141,63 @@ int main() {
   }
 
   float vertices[] = {
-       0.5, 0.5, 0.0, 1.0, 0.0,
-       0.5,-0.5, 0.0, 1.0, 1.0,
-      -0.5,-0.5, 0.0, 0.0, 1.0,
-      -0.5, 0.5, 0.0, 0.0, 0.0
-  };
-  unsigned int indexes[] = { 0, 1, 3, 1, 2, 3 };
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 
-  unsigned int vao, vbo, ebo;
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+  };
+
+  glm::vec3 cubePositions[] = {
+    glm::vec3( 0.0f,  0.0f,  0.0f), 
+    glm::vec3( 2.0f,  5.0f, -15.0f), 
+    glm::vec3(-1.5f, -2.2f, -2.5f),  
+    glm::vec3(-3.8f, -2.0f, -12.3f),  
+    glm::vec3( 2.4f, -0.4f, -3.5f),  
+    glm::vec3(-1.7f,  3.0f, -7.5f),  
+    glm::vec3( 1.3f, -2.0f, -2.5f),  
+    glm::vec3( 1.5f,  2.0f, -2.5f), 
+    glm::vec3( 1.5f,  0.2f, -1.5f), 
+    glm::vec3(-1.3f,  1.0f, -1.5f)  
+  };
+
+  unsigned int vao, vbo;
 
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
@@ -135,19 +211,26 @@ int main() {
                         (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
 
-  glGenBuffers(1, &ebo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexes), indexes, GL_STATIC_DRAW);
-
-  // scale,rotate,translate --> matrix multipliation reads RIGHT TO LEFT (not communative)
-  glm::mat4 transform1 = glm::mat4(1.0);
-  transform1 = glm::rotate(transform1, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
-  transform1 = glm::scale(transform1, glm::vec3(0.5, 0.5, 0.5));
-  transform1 = glm::translate(transform1, glm::vec3(1.0, 1.0, 0.0));
+  float previousTime = glfwGetTime();
 
   while (!glfwWindowShouldClose(window)) {
+    float speed = 2.5 * (glfwGetTime() - previousTime);
+    previousTime = glfwGetTime();
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+      camera.move(Direction::Forward, speed);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+      camera.move(Direction::Backward, speed);
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+      camera.move(Direction::Up, speed);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+      camera.move(Direction::Down, speed);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+      camera.move(Direction::Right, speed);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+      camera.move(Direction::Left, speed);
+
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -156,13 +239,20 @@ int main() {
     shader.setInt("texture1", 0);
     glBindVertexArray(vao);
 
-    shader.setMatrix("transform", glm::value_ptr(transform1));
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glm::mat4 projection = glm::mat4(1.0);
+    projection = glm::perspective(glm::radians(camera.getFieldOfView()), aspectRatio, 0.1, 100.0);
 
-    glm::mat4 transform2 = glm::mat4(1.0);
-    transform2 = glm::rotate(transform2, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
-    shader.setMatrix("transform", glm::value_ptr(transform2));
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    for (int i = 0; i < 10; i++) {
+      float angle = (float)glfwGetTime() * glm::radians(50.0f);
+      glm::mat4 model = glm::mat4(1.0f);
+      model = glm::translate(model, cubePositions[i]);
+      model = glm::rotate(model, angle, glm::vec3(0.5, 1.0, 0.0));
+
+      glm::mat4 matrix = projection * camera.getView() * model;
+      shader.setMatrix("transform", glm::value_ptr(matrix));
+
+      glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
 
     glfwSwapBuffers(window);
     glfwPollEvents();

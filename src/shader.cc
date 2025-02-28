@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <string>
 
-#include "shaders.h"
+#include "shader.h"
 
 std::string readFile(std::string path) {
   std::ifstream file(path);

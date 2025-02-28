@@ -10,5 +10,5 @@ uniform mat4 transform;
 
 void main() {
   texCoord = coordinate;
-  gl_Position = transform * vec4(position.x, position.y, position.z, 1);
+  gl_Position = transform * vec4(position, 1.0);
 }
