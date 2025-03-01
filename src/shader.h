@@ -8,6 +8,7 @@ public:
   void setInt(const char *name, int value);
   void setFloat(const char *name, float value);
   void setMatrix(const char *name, float *matrix);
+  void setVector(const char *name, const float *vector);
 
 private:
   int vertexShader = -1;

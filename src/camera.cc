@@ -25,8 +25,8 @@ void Camera::move(Direction direction, float speed) {
   if (direction == Direction::Down)     position -= up * speed;
   if (direction == Direction::Left)     position -= right * speed;
   if (direction == Direction::Right)    position += right * speed;
-  if (direction == Direction::Forward)  position += front * speed;
-  if (direction == Direction::Backward) position -= front * speed;
+  if (direction == Direction::Forward)  position -= front * speed;
+  if (direction == Direction::Backward) position += front * speed;
 }
 
 void Camera::rotate(double xOffset, double yOffset) {

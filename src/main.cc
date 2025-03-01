@@ -18,6 +18,50 @@ bool firstCapture = false;
 double lastX = 400, lastY = 300;
 Camera camera(glm::vec3(0.0, 0.0, 5.0), glm::vec3(0.0, 1.0, 0.0), 0.1);
 
+const float cubeVertices[] = {
+  -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+   0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+   0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+   0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+  -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+  -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+  -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+  -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+   0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+   0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+   0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+   0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+  -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+};
+
 void resizeCallback(GLFWwindow *window, int width, int height) {
   (void)window;
   glViewport(0, 0, width, height);
@@ -94,6 +138,10 @@ void debugCallback(unsigned int source, unsigned int type, unsigned int id,
   std::cout << message << "\n";
 }
 
+glm::vec3 normalizeRgb(glm::vec3 rgb) {
+  return glm::vec3(rgb.x / 255.0, rgb.y / 255.0, rgb.z / 255.0);
+}
+
 int main() {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -126,8 +174,8 @@ int main() {
 
   Shader shader;
   try {
-    shader.load(GL_VERTEX_SHADER, "../src/vertex.glsl");
-    shader.load(GL_FRAGMENT_SHADER, "../src/fragment.glsl");
+    shader.load(GL_VERTEX_SHADER, "../src/shaders/vertex.glsl");
+    shader.load(GL_FRAGMENT_SHADER, "../src/shaders/fragment.glsl");
     shader.assemble();
   } catch (std::string str) {
     std::cout << str;
@@ -140,76 +188,36 @@ int main() {
     return -1;
   }
 
-  float vertices[] = {
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-  };
-
-  glm::vec3 cubePositions[] = {
-    glm::vec3( 0.0f,  0.0f,  0.0f), 
-    glm::vec3( 2.0f,  5.0f, -15.0f), 
-    glm::vec3(-1.5f, -2.2f, -2.5f),  
-    glm::vec3(-3.8f, -2.0f, -12.3f),  
-    glm::vec3( 2.4f, -0.4f, -3.5f),  
-    glm::vec3(-1.7f,  3.0f, -7.5f),  
-    glm::vec3( 1.3f, -2.0f, -2.5f),  
-    glm::vec3( 1.5f,  2.0f, -2.5f), 
-    glm::vec3( 1.5f,  0.2f, -1.5f), 
-    glm::vec3(-1.3f,  1.0f, -1.5f)  
-  };
-
-  unsigned int vao, vbo;
-
-  glGenVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-
-  glGenBuffers(1, &vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+  unsigned int cubeVao, cubeVbo;
+  glGenVertexArrays(1, &cubeVao);
+  glBindVertexArray(cubeVao);
+  glGenBuffers(1, &cubeVbo);
+  glBindBuffer(GL_ARRAY_BUFFER, cubeVbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                         (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
+
+  Shader lightShader;
+  try {
+    lightShader.load(GL_VERTEX_SHADER, "../src/shaders/lightVertex.glsl");
+    lightShader.load(GL_FRAGMENT_SHADER, "../src/shaders/lightFragment.glsl");
+    lightShader.assemble();
+  } catch (std::string str) {
+    std::cout << str;
+    return -1;
+  }
+
+  unsigned int lightVao, lightVbo;
+  glGenVertexArrays(1, &lightVao);
+  glBindVertexArray(lightVao);
+  glGenBuffers(1, &lightVbo);
+  glBindBuffer(GL_ARRAY_BUFFER, lightVbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
 
   float previousTime = glfwGetTime();
 
@@ -235,24 +243,37 @@ int main() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
 
+    // Draw the scene
     shader.use();
     shader.setInt("texture1", 0);
-    glBindVertexArray(vao);
+    glBindVertexArray(cubeVao);
 
     glm::mat4 projection = glm::mat4(1.0);
     projection = glm::perspective(glm::radians(camera.getFieldOfView()), aspectRatio, 0.1, 100.0);
 
-    for (int i = 0; i < 10; i++) {
-      float angle = (float)glfwGetTime() * glm::radians(50.0f);
-      glm::mat4 model = glm::mat4(1.0f);
-      model = glm::translate(model, cubePositions[i]);
-      model = glm::rotate(model, angle, glm::vec3(0.5, 1.0, 0.0));
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
+    model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(0.5, 1.0, 0.0));
 
-      glm::mat4 matrix = projection * camera.getView() * model;
-      shader.setMatrix("transform", glm::value_ptr(matrix));
+    glm::mat4 matrix = projection * camera.getView() * model;
+    shader.setMatrix("transform", glm::value_ptr(matrix));
 
-      glDrawArrays(GL_TRIANGLES, 0, 36);
-    }
+    shader.setVector("objectColor", glm::value_ptr(normalizeRgb(glm::vec3(7.0, 218.0, 230.0))));
+    shader.setVector("lightColor", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    // Draw the light source
+    lightShader.use();
+    glBindVertexArray(lightVao);
+
+    glm::mat4 lightModel = glm::mat4(1.0f);
+    lightModel = glm::translate(lightModel, glm::vec3(0.0, 4.0, -3.0));
+    lightModel = glm::scale(lightModel, glm::vec3(0.5, 0.5, 0.5));
+    matrix = projection * camera.getView() * lightModel;
+
+    lightShader.setMatrix("transform", glm::value_ptr(matrix));
+    glDrawArrays(GL_TRIANGLES, 0, 36);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
