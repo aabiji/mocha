@@ -88,5 +88,5 @@ void Shader::setMatrix(const char *name, float *matrix) {
 }
 
 void Shader::setVector(const char *name, const float *vector) {
-  glUniform4fv(glGetUniformLocation(program, name), 1, vector);
+  glUniform3fv(glGetUniformLocation(program, name), 1, vector);
 }

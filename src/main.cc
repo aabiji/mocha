@@ -14,57 +14,60 @@
 #include "camera.h"
 #include "shader.h"
 
+double windowWidth = 800, windowHeight = 600;
 bool firstCapture = false;
 double lastX = 400, lastY = 300;
 Camera camera(glm::vec3(0.0, 0.0, 5.0), glm::vec3(0.0, 1.0, 0.0), 0.1);
 
-const float cubeVertices[] = {
-  -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-   0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-  -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+float cubeVertices[] = {
+  -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+   0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+   0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+   0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+  -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-   0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-   0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-  -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+   0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+   0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+   0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+  -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
 
-  -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-  -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-  -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+  -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+  -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+  -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+  -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+  -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+  -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
 
-   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-   0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-   0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-   0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+   0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+   0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+   0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+   0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+   0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+   0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-   0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-   0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-  -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-  -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+   0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+   0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+   0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+  -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+  -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
 
-  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-   0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-   0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-  -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+  -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+   0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+   0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+   0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+  -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+  -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
 };
 
 void resizeCallback(GLFWwindow *window, int width, int height) {
   (void)window;
   glViewport(0, 0, width, height);
+  windowWidth = width;
+  windowHeight = height;
 }
 
 void keyCallback(GLFWwindow *window, int key, int scanCode, int action, int mods) {
@@ -148,9 +151,7 @@ int main() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  int width = 800, height = 600;
-  const double aspectRatio = (float)width / (float)height;
-  GLFWwindow *window = glfwCreateWindow(width, height, "App", nullptr, nullptr);
+  GLFWwindow *window = glfwCreateWindow(int(windowWidth), int(windowHeight), "App", nullptr, nullptr);
   if (window == nullptr) {
     std::cout << "Couldn't create a window\n";
     return -1;
@@ -162,7 +163,7 @@ int main() {
     return -1;
   }
 
-  glViewport(0, 0, width, height);
+  glViewport(0, 0, int(windowWidth), int(windowHeight));
   glfwSetFramebufferSizeCallback(window, resizeCallback);
   glfwSetKeyCallback(window, keyCallback);
   glfwSetCursorPosCallback(window, mouseCallback);
@@ -182,23 +183,17 @@ int main() {
     return -1;
   }
 
-  int texture = loadTexture("stewie.jpg");
-  if (texture == -1) {
-    std::cout << "Error loading stewie.jpg\n";
-    return -1;
-  }
-
   unsigned int cubeVao, cubeVbo;
   glGenVertexArrays(1, &cubeVao);
   glBindVertexArray(cubeVao);
   glGenBuffers(1, &cubeVbo);
   glBindBuffer(GL_ARRAY_BUFFER, cubeVbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0); // position
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
                         (void *)(3 * sizeof(float)));
-  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(1); // normal
 
   Shader lightShader;
   try {
@@ -216,7 +211,7 @@ int main() {
   glGenBuffers(1, &lightVbo);
   glBindBuffer(GL_ARRAY_BUFFER, lightVbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
 
   float previousTime = glfwGetTime();
@@ -240,38 +235,37 @@ int main() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
     // Draw the scene
     shader.use();
-    shader.setInt("texture1", 0);
     glBindVertexArray(cubeVao);
 
-    glm::mat4 projection = glm::mat4(1.0);
-    projection = glm::perspective(glm::radians(camera.getFieldOfView()), aspectRatio, 0.1, 100.0);
+    float radius = 10, angle = glfwGetTime();
+    glm::mat4 lightPosition = glm::mat4(1.0f);
+    lightPosition = glm::scale(lightPosition, glm::vec3(0.5, 0.5, 0.5));
+    lightPosition = glm::translate(lightPosition, glm::vec3(cos(angle) * radius, 0.0, sin(angle) * radius));
 
+    glm::mat4 projection = glm::mat4(1.0);
+    projection = glm::perspective(glm::radians(camera.getFieldOfView()), windowWidth / windowHeight, 0.1, 100.0);
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
-    model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(0.5, 1.0, 0.0));
+    model = glm::rotate(model, angle, glm::vec3(0.5, 1.0, 0.0));  
+    glm::mat4 view = camera.getView();
+    glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
 
-    glm::mat4 matrix = projection * camera.getView() * model;
-    shader.setMatrix("transform", glm::value_ptr(matrix));
-
-    shader.setVector("objectColor", glm::value_ptr(normalizeRgb(glm::vec3(7.0, 218.0, 230.0))));
+    shader.setMatrix("view", glm::value_ptr(view));
+    shader.setMatrix("model", glm::value_ptr(model));
+    shader.setMatrix("projection", glm::value_ptr(projection));
+    shader.setMatrix("normalMatrix", glm::value_ptr(normalMatrix));
+    shader.setVector("viewPosition", glm::value_ptr(camera.getPosition()));
+    shader.setVector("lightPosition", glm::value_ptr(lightPosition));
     shader.setVector("lightColor", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
-
+    shader.setVector("objectColor", glm::value_ptr(normalizeRgb(glm::vec3(7.0, 218.0, 230.0))));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     // Draw the light source
     lightShader.use();
     glBindVertexArray(lightVao);
-
-    glm::mat4 lightModel = glm::mat4(1.0f);
-    lightModel = glm::translate(lightModel, glm::vec3(0.0, 4.0, -3.0));
-    lightModel = glm::scale(lightModel, glm::vec3(0.5, 0.5, 0.5));
-    matrix = projection * camera.getView() * lightModel;
-
+    glm::mat4 matrix = projection * camera.getView() * lightPosition;
     lightShader.setMatrix("transform", glm::value_ptr(matrix));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 

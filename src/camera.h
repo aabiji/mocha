@@ -10,6 +10,7 @@ public:
 
   glm::mat4 getView();
   double getFieldOfView();
+  glm::vec3 getPosition();
 
   void move(Direction direction, float speed);
   void rotate(double xoffset, double yoffset);
