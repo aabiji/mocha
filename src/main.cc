@@ -14,6 +14,9 @@
 #include "camera.h"
 #include "shader.h"
 
+// TODO: use Uniform Buffer Objects to pass constant data
+// into shaders https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL
+
 double windowWidth = 800, windowHeight = 600;
 bool firstCapture = false;
 double lastX = 400, lastY = 300;
@@ -141,10 +144,6 @@ void debugCallback(unsigned int source, unsigned int type, unsigned int id,
   std::cout << message << "\n";
 }
 
-glm::vec3 normalizeRgb(glm::vec3 rgb) {
-  return glm::vec3(rgb.x / 255.0, rgb.y / 255.0, rgb.z / 255.0);
-}
-
 int main() {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -257,9 +256,17 @@ int main() {
     shader.setMatrix("projection", glm::value_ptr(projection));
     shader.setMatrix("normalMatrix", glm::value_ptr(normalMatrix));
     shader.setVector("viewPosition", glm::value_ptr(camera.getPosition()));
-    shader.setVector("lightPosition", glm::value_ptr(lightPosition));
-    shader.setVector("lightColor", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
-    shader.setVector("objectColor", glm::value_ptr(normalizeRgb(glm::vec3(7.0, 218.0, 230.0))));
+    shader.setVector("objectColor", glm::value_ptr(glm::vec3(1.0, 1.0, 0.0)));
+
+    shader.setFloat("material.shininess", 0.4);
+    shader.setVector("material.ambient", glm::value_ptr(glm::vec3(0.24725, 0.1995, 0.0745)));
+    shader.setVector("material.diffuse", glm::value_ptr(glm::vec3(0.75164, 0.60648, 0.22648)));
+    shader.setVector("material.specular", glm::value_ptr(glm::vec3(0.628281, 0.555802, 0.366065)));    
+    shader.setVector("light.ambient",  glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
+    shader.setVector("light.diffuse",  glm::value_ptr(glm::vec3(0.5, 0.5, 0.5)));
+    shader.setVector("light.specular", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    shader.setVector("light.position", glm::value_ptr(lightPosition));
+
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     // Draw the light source

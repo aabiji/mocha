@@ -1,18 +1,33 @@
 #version 460 core
 
+struct Material {
+  float shininess;
+  // Strength of the light for the different types of lighting
+  vec3 ambient;
+  vec3 diffuse;
+  vec3 specular;
+};
+
+struct Light {
+  vec3 position;
+  // Color of the light for the different types of lighting
+  vec3 ambient;
+  vec3 diffuse;
+  vec3 specular;
+};
+
 in vec3 fragmentNormal;
 in vec3 fragmentPosition;
 
 out vec4 color;
 
-uniform vec3 lightPosition;
 uniform vec3 viewPosition;
-uniform vec3 lightColor;
 uniform vec3 objectColor;
+uniform Material material;
+uniform Light light;
 
 void main() {
-  float ambientStrength = 0.1;
-  vec3 ambient = ambientStrength * lightColor;
+  vec3 ambient = material.ambient * light.ambient;
 
   // diffuse lighting:
   // the smaller the angle between the normal and the light direction vector (narrow),
@@ -23,18 +38,17 @@ void main() {
   // why wouldn't the calculations work well when we've scaled the lightPosition? --> because
   // we weren't inputting the correct fragment position!
   vec3 normal = normalize(fragmentNormal);
-  vec3 lightDirection = normalize(lightPosition - fragmentPosition);
+  vec3 lightDirection = normalize(light.position - fragmentPosition);
   float diffuseIntensity = max(dot(normal, lightDirection), 0.0);
-  vec3 diffuse = diffuseIntensity * lightColor;
+  vec3 diffuse = diffuseIntensity * material.diffuse * light.diffuse;
 
   // specular lighting:
   // take the light direction vector and reflect it around the normal
   // use the dot product between the view direction and the reflected vector as the specular intensity
-  float shininess = 32, strength = 0.5;
   vec3 reflected = reflect(-lightDirection, normal);
   vec3 viewDirection = normalize(viewPosition - fragmentPosition);
-  float specularIntensity = pow(max(dot(reflected, viewDirection), 0.0), shininess);
-  vec3 specular = strength * specularIntensity * lightColor;
+  float specularIntensity = pow(max(dot(reflected, viewDirection), 0.0), material.shininess);
+  vec3 specular = specularIntensity * material.specular * light.specular;
 
   color = vec4((ambient + diffuse + specular) * objectColor, 1.0);
 }
