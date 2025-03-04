@@ -16,14 +16,6 @@ glm::mat4 Camera::getView() {
   return glm::lookAt(position, position + front, up);
 }
 
-double Camera::getFieldOfView() {
-  return fieldOfView;
-}
-
-glm::vec3 Camera::getPosition() {
-  return position;
-}
-
 void Camera::move(Direction direction, float speed) {
   if (direction == Direction::Up)       position += up * speed;
   if (direction == Direction::Down)     position -= up * speed;

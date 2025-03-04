@@ -17,6 +17,9 @@
 
 // TODO: use Uniform Buffer Objects to pass constant data
 // into shaders https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL
+// TODO: review the light casters section then look at model loading
+// TODO: think about what our mini engine should be able to do
+// TODO: start implementing the mini game engine! Use the tutorial code as an example
 
 double windowWidth = 800, windowHeight = 600;
 bool firstCapture = false;
@@ -187,11 +190,19 @@ int main() {
     shader.use();
     shader.setInt("material.diffuse", 0);
     shader.setInt("material.specular", 1);
-
     shader.setFloat("material.shininess", 0.4);
+
+    // Values taken from here: http://www.ogre3d.org/tikiwiki/tiki-index.php?page=-Point+Light+Attenuation
+    shader.setFloat("light.constant", 1.0);
+    shader.setFloat("light.linear", 0.09);
+    shader.setFloat("light.quadratic", 0.032);
+
     shader.setVector("light.ambient",  glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
     shader.setVector("light.diffuse",  glm::value_ptr(glm::vec3(0.5, 0.5, 0.5)));
     shader.setVector("light.specular", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+
+    shader.setVector("light.direction", glm::value_ptr(glm::vec3(-0.2, -1.0, -0.3)));
+    shader.setVector("light.position", glm::value_ptr(glm::vec3(0.0, 5.0, -3.0)));
   } catch (std::string str) {
     std::cout << str;
     return -1;
@@ -252,28 +263,26 @@ int main() {
 
     shader.use();
 
-    // Draw the scene
-    float radius = 10, angle = glfwGetTime();
-    glm::mat4 lightPosition = glm::mat4(1.0f);
-    lightPosition = glm::scale(lightPosition, glm::vec3(0.5, 0.5, 0.5));
-    lightPosition = glm::translate(lightPosition, glm::vec3(cos(angle) * radius, 0.0, sin(angle) * radius));
-    shader.setVector("light.position", glm::value_ptr(lightPosition));
-
     glm::mat4 projection = glm::mat4(1.0);
-    projection = glm::perspective(glm::radians(camera.getFieldOfView()), windowWidth / windowHeight, 0.1, 100.0);
+    projection = glm::perspective(glm::radians(camera.fieldOfView), windowWidth / windowHeight, 0.1, 100.0);
     shader.setMatrix("projection", glm::value_ptr(projection));
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
-    model = glm::rotate(model, angle, glm::vec3(0.5, 1.0, 0.0));
+    model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5, 1.0, 0.0));
     shader.setMatrix("model", glm::value_ptr(model));
 
     glm::mat4 view = camera.getView();
     shader.setMatrix("view", glm::value_ptr(view));
-    shader.setVector("viewPosition", glm::value_ptr(camera.getPosition()));
+    shader.setVector("viewPosition", glm::value_ptr(camera.position));
 
     glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
     shader.setMatrix("normalMatrix", glm::value_ptr(normalMatrix));
+
+    shader.setVector("light.spotlightPosition", glm::value_ptr(camera.position));
+    shader.setVector("light.spotlightDirection", glm::value_ptr(camera.front));
+    shader.setFloat("light.cutoff", glm::cos(glm::radians(45.0))); // cos since the dot product gives us cosine
+    shader.setFloat("light.outerCutoff", glm::cos(glm::radians(17.5f)));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseMap);  
@@ -286,6 +295,8 @@ int main() {
     // Draw the light source
     lightShader.use();
     glBindVertexArray(lightVao);
+    glm::mat4 lightPosition = glm::mat4(1.0);
+    lightPosition = glm::translate(lightPosition, glm::vec3(0.0, 5.0, -3.0));
     glm::mat4 matrix = projection * camera.getView() * lightPosition;
     lightShader.setMatrix("transform", glm::value_ptr(matrix));
     glDrawArrays(GL_TRIANGLES, 0, 36);
