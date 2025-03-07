@@ -15,9 +15,9 @@
 #include "camera.h"
 #include "shader.h"
 
+// TODO: look at model loader chapter!
 // TODO: use Uniform Buffer Objects to pass constant data
 // into shaders https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL
-// TODO: review the light casters section then look at model loading
 // TODO: think about what our mini engine should be able to do
 // TODO: start implementing the mini game engine! Use the tutorial code as an example
 
@@ -279,10 +279,29 @@ int main() {
     glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
     shader.setMatrix("normalMatrix", glm::value_ptr(normalMatrix));
 
-    shader.setVector("light.spotlightPosition", glm::value_ptr(camera.position));
-    shader.setVector("light.spotlightDirection", glm::value_ptr(camera.front));
-    shader.setFloat("light.cutoff", glm::cos(glm::radians(45.0))); // cos since the dot product gives us cosine
-    shader.setFloat("light.outerCutoff", glm::cos(glm::radians(17.5f)));
+    shader.setVector("dirlight.direction", glm::value_ptr(glm::vec3(-0.2, -1.0, -0.3)));
+    shader.setVector("dirlight.ambient", glm::value_ptr(glm::vec3(0.05f, 0.05f, 0.05f)));
+    shader.setVector("dirlight.diffuse", glm::value_ptr(glm::vec3(0.4, 0.4, 0.4)));
+    shader.setVector("dirlight.specular", glm::value_ptr(glm::vec3(0.5, 0.5, 0.5)));
+
+    shader.setVector("spotlight.position", glm::value_ptr(camera.position));
+    shader.setVector("spotlight.direction", glm::value_ptr(camera.front));
+    shader.setVector("spotlight.ambient", glm::value_ptr(glm::vec3(0.0, 0.0, 0.0)));
+    shader.setVector("spotlight.diffuse", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    shader.setVector("spotlight.specular", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    shader.setFloat("spotlight.constant", 1.0);
+    shader.setFloat("spotlight.linear", 0.09);
+    shader.setFloat("spotlight.quadratic", 0.032);
+    shader.setFloat("spotlight.cutOff", glm::cos(glm::radians(12.5)));
+    shader.setFloat("spotlight.outerCutOff", glm::cos(glm::radians(15.0)));
+
+    shader.setVector("pointlight.position", glm::value_ptr(glm::vec3(0.7, 0.2, 2.0)));
+    shader.setVector("pointlight.ambient", glm::value_ptr(glm::vec3(0.05, 0.05, 0.05)));
+    shader.setVector("pointlight.diffuse", glm::value_ptr(glm::vec3(0.8, 0.8, 0.8)));
+    shader.setVector("pointlight.specular", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    shader.setFloat("pointlight.constant", 1.0);
+    shader.setFloat("pointlight.linear", 0.09);
+    shader.setFloat("pointlight.quadratic", 0.032);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseMap);  
