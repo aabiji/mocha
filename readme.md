@@ -1,21 +1,13 @@
-What if we mapped human movement to a 3d model? So we input video or live webcam and
-do pose estimation and map that to skeletal animation? Then perhaps "replay" the movement
-with a 3d model?
+# Mocha
 
-We'd need:
-- OpenCV for webcam and general computer vision
-- OpenGL to render our 3d models and our scenes
-- OpenPose to get pose estimation
+Motion capture app. You record a video of someone moving
+and that motion is mapped to a 3d animation of a human model
+that can be replayed. For example, you could map the choreography
+of dancers in kpop dance videos into 3d animations.
 
-- Actually learn OpenGL
-    - Go through tutorials and build small demos
-      - Implement math for camera in OpenGL [FROM SCRATCH](http://www.songho.ca/opengl/gl_projectionmatrix.html)
-    - Questions:
-        - How to render textures using the correct aspect ratio. I'm assuming it has something to do with the vertex positions.
-          To support multiple textures it would be best to implement that in the shader. How to do that?
-- Go through OpenPose to understand how it works
-- Understand how skeletal animations should work
-- Connect OpenPose with our OpenGL project
+Tech Stack:
+- SDL3 + Opengl: Engine responsible for the 3d model rendering and their skeletal animation.
+- Mediapipe: Get skeletal information from the human pose estimation.
+- Custom bridge library: Connect to the mediapipe output to the game engine.
 
-The goal would be to understand fully how everything works --
-not just glue things together for the hell of it.
+Currently working on the game engine, model loading and skeletal animation
