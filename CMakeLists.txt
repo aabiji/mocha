@@ -46,3 +46,6 @@ set(ASSIMP_INSTALL OFF)
 set(ASSIMP_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(assimp)
 target_link_libraries(app assimp)
+
+find_package(OpenGL REQUIRED)
+target_link_libraries(app OpenGL::GL)
