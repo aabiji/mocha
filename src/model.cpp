@@ -5,10 +5,27 @@
 
 #include "model.h"
 
+#define toVec3(v) glm::vec3(v.x, v.y, v.z)
+#define toVec2(v) glm::vec2(v.x, v.y)
+
 // TODO:
-// Load materials, textures and texture coordinates (test on other models)
-// Add some basic directional lighting
+// Draw meshes with their respective textures
+// Load materials and add some basic directional lighting
 // Start researching skeletal animation
+
+Texture::Texture(aiTexture* info)
+{
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, info->mWidth, info->mHeight, 0, GL_RGBA, GL_UNSIGNED_INT, info->pcData);
+}
 
 void Mesh::init()
 {
@@ -23,6 +40,8 @@ void Mesh::init()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, coord));
+    glEnableVertexAttribArray(2);
 
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -37,8 +56,12 @@ void Model::load(const char* path)
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
 
-    if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+    if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
+
+    for (unsigned int i = 0; i < scene->mNumTextures; i++) {
+        textures.push_back(Texture(scene->mTextures[i]));
+    }
 
     processNode(scene, scene->mRootNode);
 }
@@ -52,11 +75,6 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
         processNode(scene, node->mChildren[i]);
     }
-}
-
-inline glm::vec3 toVec3(aiVector3D& v)
-{
-    return glm::vec3(v.x, v.y, v.z);
 }
 
 void Model::processMesh(const aiMesh* meshData)
@@ -73,6 +91,7 @@ void Model::processMesh(const aiMesh* meshData)
         Vertex v;
         v.position = toVec3(meshData->mVertices[i]);
         v.normal = toVec3(meshData->mNormals[i]);
+        v.coord = toVec2(meshData->mTextureCoords[0][i]);
         mesh.vertices.push_back(v);
     }
 

@@ -63,7 +63,7 @@ int main()
 
     Model model;
     try {
-        model.load("../assets/cube.obj");
+        model.load("../assets/fox.glb");
     } catch (std::string message) {
         std::cout << message << "\n";
         return -1;
@@ -81,7 +81,7 @@ int main()
     glm::mat4 projection = glm::perspective(glm::radians(45.0), (double)width / (double)height, 0.1, 100.0);
     glm::mat4 modelMatrix = glm::mat4(1.0); // At the origin
     glm::mat4 normal = glm::inverse(glm::transpose(glm::mat3(modelMatrix)));
-    float angle = 0, radius = 15;
+    float angle = 0, radius = 5;
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -103,6 +103,14 @@ int main()
                     angle--;
                     if (angle <= 0)
                         angle = 360;
+                }
+            }
+            if (event.type == SDL_EVENT_KEY_UP) {
+                if (event.key.key == SDLK_SPACE) {
+                    int polygonMode[2];
+                    glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+                    int mode = polygonMode[0] == GL_LINE ? GL_FILL : GL_LINE;
+                    glPolygonMode(GL_FRONT_AND_BACK, mode);
                 }
             }
         }

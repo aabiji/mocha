@@ -4,10 +4,17 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+struct Texture
+{
+    Texture(aiTexture* info);
+    unsigned int id;
+};
+
 struct Vertex
 {
     glm::vec3 position;
     glm::vec3 normal;
+    glm::vec2 coord;
 };
 
 struct Mesh
@@ -28,4 +35,5 @@ private:
     void processMesh(const aiMesh* meshData);
 
     std::vector<Mesh> meshes;
+    std::vector<Texture> textures;
 };
