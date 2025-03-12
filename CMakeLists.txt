@@ -15,8 +15,8 @@ set(SDL_STATIC ON)
 add_executable(
   app
   src/main.cpp
+  src/model.cpp
   src/shader.cpp
-  src/camera.cpp
 )
 target_include_directories(app PRIVATE include)
 target_compile_options(app PRIVATE -Wall -Wextra -Werror)
