@@ -1,6 +1,10 @@
+#include <format>
+#include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-
 #include <glad.h>
 
 #include "model.h"
@@ -12,20 +16,6 @@
 // Draw meshes with their respective textures
 // Load materials and add some basic directional lighting
 // Start researching skeletal animation
-
-Texture::Texture(aiTexture* info)
-{
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, info->mWidth, info->mHeight, 0, GL_RGBA, GL_UNSIGNED_INT, info->pcData);
-}
 
 void Mesh::init()
 {
@@ -48,7 +38,7 @@ void Mesh::init()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexes.size() * sizeof(unsigned int), indexes.data(), GL_STATIC_DRAW);
 }
 
-void Model::load(const char* path)
+void Model::load(Shader* shader, const char* path)
 {
     Assimp::Importer importer;
 
@@ -59,11 +49,45 @@ void Model::load(const char* path)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    for (unsigned int i = 0; i < scene->mNumTextures; i++) {
-        textures.push_back(Texture(scene->mTextures[i]));
-    }
-
+    shaderPtr = shader;
+    loadTextures(scene);
     processNode(scene, scene->mRootNode);
+}
+
+void Model::loadTextures(const aiScene* scene)
+{
+    textureIds.clear();
+    textureIds.reserve(scene->mNumTextures);
+    glGenTextures(scene->mNumTextures, textureIds.data());
+
+    for (unsigned int i = 0; i < scene->mNumTextures; i++) {
+        unsigned char* data = (unsigned char*)scene->mTextures[i]->pcData;
+        int width = scene->mTextures[i]->mWidth;
+        int height = scene->mTextures[i]->mHeight;
+        int channels = 4, internalFormat = GL_RGBA;
+
+        bool wasCompressed = false;
+        if (height == 0) { // Decompress the embedded texture
+            data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
+            internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
+            wasCompressed = true;
+        }
+
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, textureIds[i]);
+        shaderPtr->setInt(std::format("textures[{}]", i).c_str(), i);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        if (wasCompressed)
+            free(data);
+    }
 }
 
 void Model::processNode(const aiScene* scene, const aiNode* node)
@@ -103,6 +127,11 @@ void Model::draw()
 {
     for (Mesh& mesh : meshes) {
         glBindVertexArray(mesh.vao);
+        for (size_t i = 0; i < textureIds.size(); i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, textureIds[i]);
+        }
+        shaderPtr->setInt("currentTexture", 0);
         glDrawElements(GL_TRIANGLES, (unsigned int)mesh.indexes.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }

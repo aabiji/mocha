@@ -9,7 +9,6 @@
 #include <SDL3/SDL.h>
 
 #include "model.h"
-#include "shader.h"
 
 // TODO: implement a better logger
 void debugCallback(
@@ -63,7 +62,8 @@ int main()
 
     Model model;
     try {
-        model.load("../assets/fox.glb");
+        shader.use();
+        model.load(&shader, "../assets/fox.glb");
     } catch (std::string message) {
         std::cout << message << "\n";
         return -1;
@@ -81,7 +81,7 @@ int main()
     glm::mat4 projection = glm::perspective(glm::radians(45.0), (double)width / (double)height, 0.1, 100.0);
     glm::mat4 modelMatrix = glm::mat4(1.0); // At the origin
     glm::mat4 normal = glm::inverse(glm::transpose(glm::mat3(modelMatrix)));
-    float angle = 0, radius = 5;
+    float angle = 88, radius = 5;
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -103,6 +103,10 @@ int main()
                     angle--;
                     if (angle <= 0)
                         angle = 360;
+                } else if (event.key.key == SDLK_UP) {
+                    radius = std::max(1.0f, radius - 1);
+                } else if (event.key.key == SDLK_DOWN) {
+                    radius = std::min(10.0f, radius + 1);
                 }
             }
             if (event.type == SDL_EVENT_KEY_UP) {
@@ -122,7 +126,7 @@ int main()
         shader.use();
 
         // Camera pointing towards the origin that can rotate around it
-        glm::vec3 cameraPosition = glm::vec3( radius * cos(glm::radians(angle)), 0.0, radius * sin(glm::radians(angle)));
+        glm::vec3 cameraPosition = glm::vec3(radius * cos(glm::radians(angle)), 0.0, radius * sin(glm::radians(angle)));
         glm::mat4 view = glm::lookAt(cameraPosition, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
         glm::mat4 transform = projection * view * modelMatrix;
         shader.setMatrix("transform", glm::value_ptr(transform));

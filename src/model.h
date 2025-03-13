@@ -4,11 +4,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-struct Texture
-{
-    Texture(aiTexture* info);
-    unsigned int id;
-};
+#include "shader.h"
 
 struct Vertex
 {
@@ -28,12 +24,14 @@ struct Mesh
 class Model
 {
 public:
-    void load(const char* path);
+    void load(Shader* shader, const char* path);
     void draw();
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiMesh* meshData);
+    void loadTextures(const aiScene* scene);
 
     std::vector<Mesh> meshes;
-    std::vector<Texture> textures;
+    std::vector<unsigned int> textureIds;
+    Shader* shaderPtr;
 };
