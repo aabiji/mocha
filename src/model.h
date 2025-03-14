@@ -2,9 +2,16 @@
 
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
+#include <unordered_map>
 #include <vector>
 
 #include "shader.h"
+
+struct Texture
+{
+    std::string sampler;
+    unsigned int id;
+};
 
 struct Vertex
 {
@@ -19,20 +26,19 @@ struct Mesh
     unsigned int vao, vbo, ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
-    unsigned int texture;
+    std::vector<Texture> textures;
 };
 
 class Model
 {
 public:
-    void load(Shader* shader, const char* path);
-    void draw();
+    void load(const char* path);
+    void draw(Shader& shader);
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, const aiMesh* meshData);
-    void loadTextures(const aiScene* scene);
+    std::vector<Texture> getTextures(const aiScene* scene, const aiMaterial* material);
 
     std::vector<Mesh> meshes;
-    std::vector<unsigned int> textureIds;
-    Shader* shaderPtr;
+    std::unordered_map<std::string, Texture> textureCache;
 };

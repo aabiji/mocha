@@ -1,6 +1,3 @@
-#include <format>
-#include <iostream>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <assimp/Importer.hpp>
@@ -13,8 +10,11 @@
 #define toVec2(v) glm::vec2(v.x, v.y)
 
 // TODO:
-// Draw meshes with their respective textures --> the colors are dodgy so our implementation must still be buggy!
-// Load materials and add some basic directional lighting
+// Write a basic logger --> [DEBUG] should be in green, [ERROR] should be in red, warning should be in yellow
+// Should each mesh be transformed by its model matrix???
+// Add normal mapping to the model
+// Fix the camera zoom and rotation -- should change direction using mouse
+// Add some basic directional lighting
 // Start researching skeletal animation
 
 void Mesh::init()
@@ -38,7 +38,7 @@ void Mesh::init()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexes.size() * sizeof(unsigned int), indexes.data(), GL_STATIC_DRAW);
 }
 
-void Model::load(Shader* shader, const char* path)
+void Model::load(const char* path)
 {
     Assimp::Importer importer;
 
@@ -49,43 +49,7 @@ void Model::load(Shader* shader, const char* path)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    shaderPtr = shader;
-    loadTextures(scene);
     processNode(scene, scene->mRootNode);
-}
-
-void Model::loadTextures(const aiScene* scene)
-{
-    textureIds.clear();
-    textureIds.reserve(scene->mNumTextures);
-    glGenTextures(scene->mNumTextures, textureIds.data());
-
-    for (unsigned int i = 0; i < scene->mNumTextures; i++) {
-        unsigned char* data = (unsigned char*)scene->mTextures[i]->pcData;
-        int width = scene->mTextures[i]->mWidth;
-        int height = scene->mTextures[i]->mHeight;
-        int channels = 4, internalFormat = GL_RGBA;
-
-        bool wasCompressed = false;
-        if (height == 0) { // Decompress the embedded texture
-            stbi_set_flip_vertically_on_load(1);
-            data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
-            internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
-            wasCompressed = true;
-        }
-
-        glBindTexture(GL_TEXTURE_2D, textureIds[i]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        if (wasCompressed)
-            free(data);
-    }
 }
 
 void Model::processNode(const aiScene* scene, const aiNode* node)
@@ -99,20 +63,81 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     }
 }
 
+int loadTexture(const aiTexture* texture)
+{
+    unsigned int id;
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int width = texture->mWidth;
+    int height = texture->mHeight;
+    int internalFormat = GL_RGBA;
+    int channels = 4;
+
+    unsigned char* data = (unsigned char*)texture->pcData;
+    bool compressed = height == 0;
+
+    if (compressed) {
+        stbi_set_flip_vertically_on_load(1);
+        data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
+        internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    if (compressed)
+        free(data);
+    return id;
+}
+
+std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* material) {
+    // Map the texture types to their corresponding names in the fragment shader
+    std::unordered_map<aiTextureType, const char*> types = {
+        { aiTextureType_DIFFUSE, "diffuse" },
+        { aiTextureType_SPECULAR, "specular" },
+        { aiTextureType_AMBIENT, "ambient" },
+        { aiTextureType_NORMALS, "normals" },
+        { aiTextureType_BASE_COLOR , "baseColor" },
+        { aiTextureType_EMISSION_COLOR, "emissionColor" },
+        { aiTextureType_METALNESS, "metalness" },
+        { aiTextureType_DIFFUSE_ROUGHNESS, "diffuseRoughness" },
+        { aiTextureType_AMBIENT_OCCLUSION, "ambientOcclusion" }
+    };
+
+    std::vector<Texture> textures;
+    for (auto& [type, name]: types) {
+        if (material->GetTextureCount(type) == 0)
+            continue;
+
+        aiString aiName;
+        material->GetTexture(type, 0, &aiName);
+        std::string assimpName = std::string(aiName.C_Str());
+
+        if (textureCache.count(assimpName)) {
+            textures.push_back(textureCache[assimpName]);
+        } else {
+            Texture t;
+            t.sampler = name;
+            t.id = loadTexture(scene->GetEmbeddedTexture(assimpName.c_str()));
+            textureCache[assimpName] = t;
+            textures.push_back(t);
+        }
+    }
+
+    return textures;
+}
+
 void Model::processMesh(const aiScene* scene, const aiMesh* meshData)
 {
     Mesh mesh;
+    mesh.textures = getTextures(scene, scene->mMaterials[meshData->mMaterialIndex]);
 
-    // TODO: load more texture types
-    aiTextureType type = aiTextureType_DIFFUSE;
-    aiMaterial* material = scene->mMaterials[meshData->mMaterialIndex];
-    if (material->GetTextureCount(type)) {
-        aiString textureName;
-        material->GetTexture(type, 0, &textureName);
-        auto pair = scene->GetEmbeddedTextureAndIndex(textureName.C_Str());
-        mesh.texture = textureIds[pair.second];
-    }
-
+    // Get the indexes and the vertices
     for (unsigned int i = 0; i < meshData->mNumFaces; i++) {
         for (unsigned int j = 0; j < meshData->mFaces[i].mNumIndices; j++) {
             mesh.indexes.push_back(meshData->mFaces[i].mIndices[j]);
@@ -131,15 +156,18 @@ void Model::processMesh(const aiScene* scene, const aiMesh* meshData)
     meshes.push_back(mesh);
 }
 
-void Model::draw()
+void Model::draw(Shader& shader)
 {
     for (Mesh& mesh : meshes) {
-        // TODO: why is there an initial black screen (laggy loading)
-        // TODO: assimp says that there will always only 1 texture per mesh -- is this always true though??
         glBindVertexArray(mesh.vao);
-        glActiveTexture(GL_TEXTURE0);
-        shaderPtr->setInt("textureSampler", 0);
-        glBindTexture(GL_TEXTURE_2D, mesh.texture);
+
+        // Initialize the texture samplers
+        for (size_t i = 0; i < mesh.textures.size(); i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            shader.setInt(mesh.textures[i].sampler.c_str(), i);
+            glBindTexture(GL_TEXTURE_2D, mesh.textures[i].id);
+        }
+
         glDrawElements(GL_TRIANGLES, (unsigned int)mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
 }

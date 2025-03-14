@@ -5,9 +5,11 @@ in vec2 textureCoordinate;
 
 out vec4 color;
 
-uniform sampler2D textureSampler;
+uniform sampler2D ambient;
+uniform sampler2D diffuse;
+uniform sampler2D specular;
 
 void main()
 {
-    color = texture(textureSampler, textureCoordinate);
+    color = texture(diffuse, textureCoordinate);
 }

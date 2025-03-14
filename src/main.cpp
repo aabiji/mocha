@@ -10,7 +10,6 @@
 
 #include "model.h"
 
-// TODO: implement a better logger
 void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)
@@ -63,7 +62,7 @@ int main()
     Model model;
     try {
         shader.use();
-        model.load(&shader, "../assets/fox.glb");
+        model.load("../assets/fox.glb");
     } catch (std::string message) {
         std::cout << message << "\n";
         return -1;
@@ -132,7 +131,7 @@ int main()
         shader.setMatrix("transform", glm::value_ptr(transform));
         shader.setMatrix("normalMatrix", glm::value_ptr(normal));
 
-        model.draw();
+        model.draw(shader);
 
         SDL_GL_SwapWindow(window);
     }

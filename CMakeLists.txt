@@ -8,9 +8,7 @@ project(
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(BUILD_SHARED_LIBS OFF)
-set(SDL_SHARED OFF)
-set(SDL_STATIC ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(
   app
@@ -29,6 +27,9 @@ FetchContent_Declare(
   GIT_TAG origin/main
   GIT_SHALLOW 1
 )
+set(BUILD_SHARED_LIBS OFF)
+set(SDL_SHARED OFF)
+set(SDL_STATIC ON)
 FetchContent_MakeAvailable(SDL3)
 target_link_libraries(app SDL3::SDL3-static)
 
