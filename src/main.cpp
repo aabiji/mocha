@@ -10,6 +10,22 @@
 
 #include "model.h"
 
+// TODO:
+// Add some basic directional lighting
+// Add normal mapping to the model
+// Fix the camera zoom and rotation -- should change direction using mouse
+// Start researching skeletal animation
+
+enum LogType { DEBUG = 32, WARN = 33, ERROR = 31 };
+void log(LogType type, std::string message, bool newline = true)
+{
+    std::cout << "[\x1b[1;" << type << "m";
+    std::cout << (type == DEBUG ? "DEBUG" : type == WARN ? "WARN" : "ERROR");
+    std::cout << "\x1b[;39m] " << message;
+    if (newline) std::cout << "\n";
+    if (type == ERROR) exit(1);
+}
+
 void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)
@@ -17,10 +33,13 @@ void debugCallback(
     (void)source;
     (void)type;
     (void)id;
-    (void)severity;
     (void)length;
     (void)param;
-    std::cout << "DEBUG: " << message << "\n";
+
+    LogType t = severity == GL_DEBUG_SEVERITY_HIGH
+        ? ERROR
+        : severity == GL_DEBUG_SEVERITY_MEDIUM ? WARN : DEBUG;
+    log(t, message, false);
 }
 
 int main()
@@ -32,21 +51,15 @@ int main()
 
     int width = 800, height = 600;
     SDL_Window* window = SDL_CreateWindow("mocha", width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    if (window == nullptr) {
-        std::cout << "Couldn't open window!\n";
-        return -1;
-    }
+    if (window == nullptr)
+        log(ERROR, "Couldn't open window!");
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
-    if (context == nullptr) {
-        std::cout << "Couldn't initialize an OpenGL context\n";
-        return -1;
-    }
+    if (context == nullptr)
+        log(ERROR, "Couldn't initialize an OpenGL context");
 
-    if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-        std::cout << "Couldn't initialize glad!\n";
-        return -1;
-    }
+    if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress))
+        log(ERROR, "Couldn't initialize glad!");
 
     Shader shader;
     try {
@@ -55,8 +68,7 @@ int main()
         shader.assemble();
         shader.use();
     } catch (std::string message) {
-        std::cout << message << "\n";
-        return -1;
+        log(ERROR, message);
     }
 
     Model model;
@@ -64,8 +76,7 @@ int main()
         shader.use();
         model.load("../assets/fox.glb");
     } catch (std::string message) {
-        std::cout << message << "\n";
-        return -1;
+        log(ERROR, message);
     }
 
     glEnable(GL_DEBUG_OUTPUT);

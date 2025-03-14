@@ -9,14 +9,6 @@
 #define toVec3(v) glm::vec3(v.x, v.y, v.z)
 #define toVec2(v) glm::vec2(v.x, v.y)
 
-// TODO:
-// Write a basic logger --> [DEBUG] should be in green, [ERROR] should be in red, warning should be in yellow
-// Should each mesh be transformed by its model matrix???
-// Add normal mapping to the model
-// Fix the camera zoom and rotation -- should change direction using mouse
-// Add some basic directional lighting
-// Start researching skeletal animation
-
 void Mesh::init()
 {
     glGenVertexArrays(1, &vao);
@@ -30,8 +22,10 @@ void Mesh::init()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, coord));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tangent));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, coord));
+    glEnableVertexAttribArray(3);
 
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -42,7 +36,8 @@ void Model::load(const char* path)
 {
     Assimp::Importer importer;
 
-    const aiScene* scene = importer.ReadFile(path, aiProcessPreset_TargetRealtime_Fast);
+    int flags = aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs;
+    const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
 
@@ -82,7 +77,6 @@ int loadTexture(const aiTexture* texture)
     bool compressed = height == 0;
 
     if (compressed) {
-        stbi_set_flip_vertically_on_load(1);
         data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
         internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
     }
@@ -102,11 +96,6 @@ std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* 
         { aiTextureType_SPECULAR, "specular" },
         { aiTextureType_AMBIENT, "ambient" },
         { aiTextureType_NORMALS, "normals" },
-        { aiTextureType_BASE_COLOR , "baseColor" },
-        { aiTextureType_EMISSION_COLOR, "emissionColor" },
-        { aiTextureType_METALNESS, "metalness" },
-        { aiTextureType_DIFFUSE_ROUGHNESS, "diffuseRoughness" },
-        { aiTextureType_AMBIENT_OCCLUSION, "ambientOcclusion" }
     };
 
     std::vector<Texture> textures;
@@ -132,23 +121,29 @@ std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* 
     return textures;
 }
 
-void Model::processMesh(const aiScene* scene, const aiMesh* meshData)
+void Model::processMesh(const aiScene* scene, const aiMesh* data)
 {
     Mesh mesh;
-    mesh.textures = getTextures(scene, scene->mMaterials[meshData->mMaterialIndex]);
+    mesh.textures = getTextures(scene, scene->mMaterials[data->mMaterialIndex]);
 
-    // Get the indexes and the vertices
-    for (unsigned int i = 0; i < meshData->mNumFaces; i++) {
-        for (unsigned int j = 0; j < meshData->mFaces[i].mNumIndices; j++) {
-            mesh.indexes.push_back(meshData->mFaces[i].mIndices[j]);
+    for (unsigned int i = 0; i < data->mNumFaces; i++) {
+        for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
+            mesh.indexes.push_back(data->mFaces[i].mIndices[j]);
         }
     }
 
-    for (unsigned int i = 0; i < meshData->mNumVertices; i++) {
+    for (unsigned int i = 0; i < data->mNumVertices; i++) {
         Vertex v;
-        v.position = toVec3(meshData->mVertices[i]);
-        v.normal = meshData->HasNormals() ? toVec3(meshData->mNormals[i]) : glm::vec3(0, 0, 0);
-        v.coord = meshData->mTextureCoords[0] ? toVec2(meshData->mTextureCoords[0][i]) : glm::vec2(0, 0);
+        v.position = toVec3(data->mVertices[i]);
+        v.normal = data->HasNormals()
+            ? toVec3(data->mNormals[i])
+            : glm::vec3(0, 0, 0);
+        v.coord = data->mTextureCoords[0]
+            ? toVec2(data->mTextureCoords[0][i])
+            : glm::vec2(0, 0);
+        v.tangent = data->HasTangentsAndBitangents()
+            ? toVec3(data->mTangents[i])
+            : glm::vec3(0, 0, 0);
         mesh.vertices.push_back(v);
     }
 
@@ -168,6 +163,6 @@ void Model::draw(Shader& shader)
             glBindTexture(GL_TEXTURE_2D, mesh.textures[i].id);
         }
 
-        glDrawElements(GL_TRIANGLES, (unsigned int)mesh.indexes.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
 }
