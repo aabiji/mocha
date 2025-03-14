@@ -15,10 +15,11 @@ struct Vertex
 
 struct Mesh
 {
+    void init();
     unsigned int vao, vbo, ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
-    void init();
+    unsigned int texture;
 };
 
 class Model
@@ -28,7 +29,7 @@ public:
     void draw();
 private:
     void processNode(const aiScene* scene, const aiNode* node);
-    void processMesh(const aiMesh* meshData);
+    void processMesh(const aiScene* scene, const aiMesh* meshData);
     void loadTextures(const aiScene* scene);
 
     std::vector<Mesh> meshes;

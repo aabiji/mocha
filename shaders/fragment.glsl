@@ -5,10 +5,9 @@ in vec2 textureCoordinate;
 
 out vec4 color;
 
-uniform int currentTexture;
-uniform sampler2D textures[32];
+uniform sampler2D textureSampler;
 
 void main()
 {
-    color = texture(textures[currentTexture], textureCoordinate);
+    color = texture(textureSampler, textureCoordinate);
 }

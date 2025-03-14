@@ -13,7 +13,7 @@
 #define toVec2(v) glm::vec2(v.x, v.y)
 
 // TODO:
-// Draw meshes with their respective textures
+// Draw meshes with their respective textures --> the colors are dodgy so our implementation must still be buggy!
 // Load materials and add some basic directional lighting
 // Start researching skeletal animation
 
@@ -68,21 +68,19 @@ void Model::loadTextures(const aiScene* scene)
 
         bool wasCompressed = false;
         if (height == 0) { // Decompress the embedded texture
+            stbi_set_flip_vertically_on_load(1);
             data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
             internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
             wasCompressed = true;
         }
 
-        glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, textureIds[i]);
-        shaderPtr->setInt(std::format("textures[{}]", i).c_str(), i);
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
         if (wasCompressed)
@@ -93,7 +91,7 @@ void Model::loadTextures(const aiScene* scene)
 void Model::processNode(const aiScene* scene, const aiNode* node)
 {
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-        processMesh(scene->mMeshes[node->mMeshes[i]]);
+        processMesh(scene, scene->mMeshes[node->mMeshes[i]]);
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -101,9 +99,19 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     }
 }
 
-void Model::processMesh(const aiMesh* meshData)
+void Model::processMesh(const aiScene* scene, const aiMesh* meshData)
 {
     Mesh mesh;
+
+    // TODO: load more texture types
+    aiTextureType type = aiTextureType_DIFFUSE;
+    aiMaterial* material = scene->mMaterials[meshData->mMaterialIndex];
+    if (material->GetTextureCount(type)) {
+        aiString textureName;
+        material->GetTexture(type, 0, &textureName);
+        auto pair = scene->GetEmbeddedTextureAndIndex(textureName.C_Str());
+        mesh.texture = textureIds[pair.second];
+    }
 
     for (unsigned int i = 0; i < meshData->mNumFaces; i++) {
         for (unsigned int j = 0; j < meshData->mFaces[i].mNumIndices; j++) {
@@ -114,8 +122,8 @@ void Model::processMesh(const aiMesh* meshData)
     for (unsigned int i = 0; i < meshData->mNumVertices; i++) {
         Vertex v;
         v.position = toVec3(meshData->mVertices[i]);
-        v.normal = toVec3(meshData->mNormals[i]);
-        v.coord = toVec2(meshData->mTextureCoords[0][i]);
+        v.normal = meshData->HasNormals() ? toVec3(meshData->mNormals[i]) : glm::vec3(0, 0, 0);
+        v.coord = meshData->mTextureCoords[0] ? toVec2(meshData->mTextureCoords[0][i]) : glm::vec2(0, 0);
         mesh.vertices.push_back(v);
     }
 
@@ -126,13 +134,12 @@ void Model::processMesh(const aiMesh* meshData)
 void Model::draw()
 {
     for (Mesh& mesh : meshes) {
+        // TODO: why is there an initial black screen (laggy loading)
+        // TODO: assimp says that there will always only 1 texture per mesh -- is this always true though??
         glBindVertexArray(mesh.vao);
-        for (size_t i = 0; i < textureIds.size(); i++) {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, textureIds[i]);
-        }
-        shaderPtr->setInt("currentTexture", 0);
+        glActiveTexture(GL_TEXTURE0);
+        shaderPtr->setInt("textureSampler", 0);
+        glBindTexture(GL_TEXTURE_2D, mesh.texture);
         glDrawElements(GL_TRIANGLES, (unsigned int)mesh.indexes.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
     }
 }
