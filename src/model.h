@@ -28,6 +28,7 @@ struct Mesh
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
     std::vector<Texture> textures;
+    bool hasNormalMap;
 };
 
 class Model
@@ -42,4 +43,5 @@ private:
 
     std::vector<Mesh> meshes;
     std::unordered_map<std::string, Texture> textureCache;
+    std::unordered_map<std::string, Texture> defaultTextures;
 };

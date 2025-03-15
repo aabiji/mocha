@@ -3,6 +3,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <glad.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <set>
 
 #include "model.h"
 
@@ -32,6 +34,23 @@ void Mesh::init()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexes.size() * sizeof(unsigned int), indexes.data(), GL_STATIC_DRAW);
 }
 
+// Create an empty 1x1 texture
+Texture emptyTexture(std::string sampler, unsigned char color)
+{
+    unsigned int id;
+    unsigned char data[] = { color, color, color };
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    return { sampler, id };
+}
+
 void Model::load(const char* path)
 {
     Assimp::Importer importer;
@@ -43,6 +62,10 @@ void Model::load(const char* path)
 
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
+
+    defaultTextures["ambient"] = emptyTexture("ambient", 25);
+    defaultTextures["diffuse"] = emptyTexture("diffuse", 255);
+    defaultTextures["specular"] = emptyTexture("specular", 128);
 
     processNode(scene, scene->mRootNode);
 }
@@ -58,6 +81,7 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     }
 }
 
+// Setup a texture object and return its id
 int loadTexture(const aiTexture* texture)
 {
     unsigned int id;
@@ -89,14 +113,16 @@ int loadTexture(const aiTexture* texture)
     return id;
 }
 
+// Get the textures that are defined in the material
 std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* material) {
     // Map the texture types to their corresponding names in the fragment shader
     std::unordered_map<aiTextureType, const char*> types = {
-        { aiTextureType_DIFFUSE, "diffuse" },
+        { aiTextureType_DIFFUSE,  "diffuse" },
         { aiTextureType_SPECULAR, "specular" },
         { aiTextureType_AMBIENT, "ambient" },
-        { aiTextureType_NORMALS, "normals" },
+        { aiTextureType_NORMALS, "normal" },
     };
+    std::set<std::string> retrieved;
 
     std::vector<Texture> textures;
     for (auto& [type, name]: types) {
@@ -107,6 +133,7 @@ std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* 
         material->GetTexture(type, 0, &aiName);
         std::string assimpName = std::string(aiName.C_Str());
 
+        retrieved.insert(name);
         if (textureCache.count(assimpName)) {
             textures.push_back(textureCache[assimpName]);
         } else {
@@ -118,6 +145,12 @@ std::vector<Texture> Model::getTextures(const aiScene* scene, const aiMaterial* 
         }
     }
 
+    // Insert the default texture in place of a missing texture
+    for (auto& [name, t] : defaultTextures) {
+        if (retrieved.count(name) == 0)
+            textures.push_back(t);
+    }
+
     return textures;
 }
 
@@ -125,6 +158,12 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
 {
     Mesh mesh;
     mesh.textures = getTextures(scene, scene->mMaterials[data->mMaterialIndex]);
+
+    mesh.hasNormalMap = false;
+    for (Texture& t : mesh.textures) {
+        if (t.sampler == "normal")
+            mesh.hasNormalMap = true;
+    }
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
         for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
@@ -156,13 +195,15 @@ void Model::draw(Shader& shader)
     for (Mesh& mesh : meshes) {
         glBindVertexArray(mesh.vao);
 
-        // Initialize the texture samplers
+        // Bind the texture samplers
         for (size_t i = 0; i < mesh.textures.size(); i++) {
             glActiveTexture(GL_TEXTURE0 + i);
-            shader.setInt(mesh.textures[i].sampler.c_str(), i);
+            std::string realName = "material." + mesh.textures[i].sampler;
+            shader.setInt(realName.c_str(), i);
             glBindTexture(GL_TEXTURE_2D, mesh.textures[i].id);
         }
 
+        shader.setInt("hasNormalMap", mesh.hasNormalMap);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
 }

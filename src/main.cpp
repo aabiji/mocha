@@ -11,8 +11,7 @@
 #include "model.h"
 
 // TODO:
-// Add some basic directional lighting
-// Add normal mapping to the model
+// Improve the lighting -- add directional and point light
 // Fix the camera zoom and rotation -- should change direction using mouse
 // Start researching skeletal animation
 
@@ -90,7 +89,6 @@ int main()
 
     glm::mat4 projection = glm::perspective(glm::radians(45.0), (double)width / (double)height, 0.1, 100.0);
     glm::mat4 modelMatrix = glm::mat4(1.0); // At the origin
-    glm::mat4 normal = glm::inverse(glm::transpose(glm::mat3(modelMatrix)));
     float angle = 88, radius = 5;
 
     while (running) {
@@ -129,8 +127,7 @@ int main()
             }
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.64, 0.64, 0.64, 1.0);
 
         shader.use();
@@ -138,13 +135,18 @@ int main()
         // Camera pointing towards the origin that can rotate around it
         glm::vec3 cameraPosition = glm::vec3(radius * cos(glm::radians(angle)), 0.0, radius * sin(glm::radians(angle)));
         glm::mat4 view = glm::lookAt(cameraPosition, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-        glm::mat4 transform = projection * view * modelMatrix;
-        shader.setMatrix("transform", glm::value_ptr(transform));
-        shader.setMatrix("normalMatrix", glm::value_ptr(normal));
+        shader.setMatrix("projection", glm::value_ptr(projection));
+        shader.setMatrix("view", glm::value_ptr(view));
+        shader.setMatrix("model", glm::value_ptr(modelMatrix));
+
+        shader.setVector("viewPos", glm::value_ptr(cameraPosition));
+        shader.setVector("lightPos", glm::value_ptr(glm::vec3(0.0, 5.0, 0.0)));
+        shader.setVector("lightColor", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
 
         model.draw(shader);
 
         SDL_GL_SwapWindow(window);
+        // TODO: add fps
     }
 
     // TODO: cleanup opengl
