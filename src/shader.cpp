@@ -19,6 +19,8 @@ std::string readFile(std::string path)
     return contents;
 }
 
+void Shader::cleanup() { glDeleteProgram(program); }
+
 void Shader::use() { glUseProgram(program); }
 
 void Shader::load(int type, const char* path)
@@ -93,7 +95,9 @@ void Shader::setMatrix(const char* name, float* matrix)
     glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, matrix);
 }
 
-void Shader::setVector(const char* name, const float* vector)
+void Shader::setVector(const char* name, const float* vector, int size)
 {
-    glUniform3fv(glGetUniformLocation(program, name), 1, vector);
+    if (size == 2) glUniform2fv(glGetUniformLocation(program, name), 1, vector);
+    if (size == 3) glUniform3fv(glGetUniformLocation(program, name), 1, vector);
+    if (size == 4) glUniform4fv(glGetUniformLocation(program, name), 1, vector);
 }

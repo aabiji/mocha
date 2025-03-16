@@ -7,12 +7,6 @@
 
 #include "shader.h"
 
-struct Texture
-{
-    std::string sampler;
-    unsigned int id;
-};
-
 struct Vertex
 {
     glm::vec3 position;
@@ -21,14 +15,15 @@ struct Vertex
     glm::vec2 coord;
 };
 
+using TextureMap = std::unordered_map<std::string, unsigned int>;
+
 struct Mesh
 {
     void init();
     unsigned int vao, vbo, ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
-    std::vector<Texture> textures;
-    bool hasNormalMap;
+    TextureMap textures;
 };
 
 class Model
@@ -36,12 +31,13 @@ class Model
 public:
     void load(const char* path);
     void draw(Shader& shader);
+    void cleanup();
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, const aiMesh* meshData);
-    std::vector<Texture> getTextures(const aiScene* scene, const aiMaterial* material);
+    TextureMap getTextures(const aiScene* scene, const aiMaterial* material);
 
     std::vector<Mesh> meshes;
-    std::unordered_map<std::string, Texture> textureCache;
-    std::unordered_map<std::string, Texture> defaultTextures;
+    TextureMap textureCache;
+    TextureMap defaultTextures;
 };

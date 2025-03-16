@@ -5,11 +5,13 @@ class Shader
 public:
     void use();
     void assemble();
+    void cleanup();
     void load(int type, const char *path);
+
     void setInt(const char* name, int value);
     void setFloat(const char* name, float value);
     void setMatrix(const char* name, float* matrix);
-    void setVector(const char* name, const float* vector);
+    void setVector(const char* name, const float* vector, int size = 3);
 
 private:
     int vertexShader = -1;

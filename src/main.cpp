@@ -11,9 +11,12 @@
 #include "model.h"
 
 // TODO:
+// Stress test the engine by rendering multiple models (find more, better models)
 // Improve the lighting -- add directional and point light
-// Fix the camera zoom and rotation -- should change direction using mouse
+// Better the camera -- look around with the mouse, rotate around using left and right arrow keys
+// Refactor and tidy up the code
 // Start researching skeletal animation
+// Clone mediapipe and start going through it
 
 enum LogType { DEBUG = 32, WARN = 33, ERROR = 31 };
 void log(LogType type, std::string message, bool newline = true)
@@ -140,8 +143,13 @@ int main()
         shader.setMatrix("model", glm::value_ptr(modelMatrix));
 
         shader.setVector("viewPos", glm::value_ptr(cameraPosition));
-        shader.setVector("lightPos", glm::value_ptr(glm::vec3(0.0, 5.0, 0.0)));
-        shader.setVector("lightColor", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+        shader.setVector("lightPos", glm::value_ptr(glm::vec4(0.0, 3.0, 1.0, 0.0)), 4);
+
+        shader.setVector("light.direction", glm::value_ptr(glm::vec3(0.5, -1.0, 0.5)));
+        shader.setVector("light.color", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+        shader.setFloat("light.constant", 1.0);
+        shader.setFloat("light.linear", 0.08);
+        shader.setFloat("light.quadratic", 0.032);
 
         model.draw(shader);
 
@@ -149,7 +157,9 @@ int main()
         // TODO: add fps
     }
 
-    // TODO: cleanup opengl
+    model.cleanup();
+    shader.cleanup();
+
     SDL_GL_DestroyContext(context);
     SDL_DestroyWindow(window);
     return 0;
