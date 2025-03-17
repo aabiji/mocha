@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 class Shader
 {
 public:
@@ -10,8 +12,9 @@ public:
 
     void setInt(const char* name, int value);
     void setFloat(const char* name, float value);
-    void setMatrix(const char* name, float* matrix);
-    void setVector(const char* name, const float* vector, int size = 3);
+    void setMatrix(const char* name, glm::mat4 value);
+    void setVec3(const char* name, glm::vec3 value);
+    void setVec4(const char* name, glm::vec4 value);
 
 private:
     int vertexShader = -1;

@@ -3,17 +3,17 @@
 #define GLAD_GL_IMPLEMENTATION 1
 #include <glad.h>
 
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <SDL3/SDL.h>
 
+#include "camera.h"
 #include "model.h"
 
+#define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
+
 // TODO:
-// Stress test the engine by rendering multiple models (find more, better models)
-// Improve the lighting -- add directional and point light
-// Better the camera -- look around with the mouse, rotate around using left and right arrow keys
+// Add a floor
+// Each model should have its own matrix (that we load from the file AND that we define)
+// Improve the lighting -- add directional and point light (look at the lighting blender uses by default)
 // Refactor and tidy up the code
 // Start researching skeletal animation
 // Clone mediapipe and start going through it
@@ -52,16 +52,23 @@ int main()
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     int width = 800, height = 600;
-    SDL_Window* window = SDL_CreateWindow("mocha", width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    long unsigned int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    SDL_Window* window = SDL_CreateWindow("mocha", width, height, flags);
     if (window == nullptr)
-        log(ERROR, "Couldn't open window!");
+        log(ERROR, SDL_GetError());
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     if (context == nullptr)
-        log(ERROR, "Couldn't initialize an OpenGL context");
+        log(ERROR, SDL_GetError());
 
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress))
         log(ERROR, "Couldn't initialize glad!");
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(debugCallback, 0);
+
+    glViewport(0, 0, width, height);
+    glEnable(GL_DEPTH_TEST);
 
     Shader shader;
     try {
@@ -73,26 +80,30 @@ int main()
         log(ERROR, message);
     }
 
-    Model model;
+    //../assets/male-model.obj
+    //../assets/rigged-guy.fbx
+    //../assets/Audio-R8/Models/Audi R8.fbx
+    //../assets/Star Marine Trooper/StarMarineTrooper.obj
+    std::vector<Model> models;
+    std::vector<std::string> paths = {
+        "../assets/cube.obj", "../assets/fox.glb"
+    };
     try {
         shader.use();
-        model.load("../assets/fox.glb");
+        for (std::string path : paths) {
+            Model m;
+            m.load(path.c_str());
+            models.push_back(m);
+        }
     } catch (std::string message) {
         log(ERROR, message);
     }
 
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(debugCallback, 0);
-
-    glViewport(0, 0, width, height);
-    glEnable(GL_DEPTH_TEST);
-
     SDL_Event event;
     bool running = true;
-
-    glm::mat4 projection = glm::perspective(glm::radians(45.0), (double)width / (double)height, 0.1, 100.0);
-    glm::mat4 modelMatrix = glm::mat4(1.0); // At the origin
-    float angle = 88, radius = 5;
+    glm::vec3 bg = normalizeRGB(255, 220, 254);
+    Camera camera(glm::vec3(0.0, 0.0, 0.0), 4);
+    glm::mat4 modelMatrix = glm::mat4(1.0);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -105,59 +116,45 @@ int main()
                 height = event.window.data2;
                 glViewport(0, 0, width, height);
             }
-            if (event.type == SDL_EVENT_KEY_DOWN) {
-                if (event.key.key == SDLK_LEFT) {
-                    angle++;
-                    if (angle >= 360)
-                        angle = 0;
-                } else if (event.key.key == SDLK_RIGHT) {
-                    angle--;
-                    if (angle <= 0)
-                        angle = 360;
-                } else if (event.key.key == SDLK_UP) {
-                    radius = std::max(1.0f, radius - 1);
-                } else if (event.key.key == SDLK_DOWN) {
-                    radius = std::min(10.0f, radius + 1);
-                }
+            if (event.type == SDL_EVENT_KEY_UP && event.key.key == SDLK_SPACE) {
+                int polygonMode[2];
+                glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+                int mode = polygonMode[0] == GL_LINE ? GL_FILL : GL_LINE;
+                glPolygonMode(GL_FRONT_AND_BACK, mode);
             }
-            if (event.type == SDL_EVENT_KEY_UP) {
-                if (event.key.key == SDLK_SPACE) {
-                    int polygonMode[2];
-                    glGetIntegerv(GL_POLYGON_MODE, polygonMode);
-                    int mode = polygonMode[0] == GL_LINE ? GL_FILL : GL_LINE;
-                    glPolygonMode(GL_FRONT_AND_BACK, mode);
-                }
-            }
+            if (event.type == SDL_EVENT_MOUSE_WHEEL)
+                camera.zoom(event.wheel.y);
+            if (event.type == SDL_EVENT_MOUSE_MOTION)
+                camera.rotate(event.motion.xrel, event.motion.yrel);
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.64, 0.64, 0.64, 1.0);
+        glClearColor(bg.x, bg.y, bg.z, 1.0);
 
         shader.use();
 
-        // Camera pointing towards the origin that can rotate around it
-        glm::vec3 cameraPosition = glm::vec3(radius * cos(glm::radians(angle)), 0.0, radius * sin(glm::radians(angle)));
-        glm::mat4 view = glm::lookAt(cameraPosition, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-        shader.setMatrix("projection", glm::value_ptr(projection));
-        shader.setMatrix("view", glm::value_ptr(view));
-        shader.setMatrix("model", glm::value_ptr(modelMatrix));
+        shader.setMatrix("model", modelMatrix);
+        shader.setMatrix("view", camera.getView());
+        shader.setMatrix("projection", camera.getProjection(width, height));
 
-        shader.setVector("viewPos", glm::value_ptr(cameraPosition));
-        shader.setVector("lightPos", glm::value_ptr(glm::vec4(0.0, 3.0, 1.0, 0.0)), 4);
+        shader.setVec3("viewPos", camera.getPosition());
+        shader.setVec4("lightPos", glm::vec4(0.0, 3.0, 1.0, 0.0));
 
-        shader.setVector("light.direction", glm::value_ptr(glm::vec3(0.5, -1.0, 0.5)));
-        shader.setVector("light.color", glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+        shader.setVec3("light.direction", glm::vec3(0.5, -1.0, 0.5));
+        shader.setVec3("light.color", glm::vec3(1.0, 1.0, 1.0));
         shader.setFloat("light.constant", 1.0);
         shader.setFloat("light.linear", 0.08);
         shader.setFloat("light.quadratic", 0.032);
 
-        model.draw(shader);
+        for (Model& m : models)
+            m.draw(shader);
 
         SDL_GL_SwapWindow(window);
-        // TODO: add fps
+        // TODO: add stable fps
     }
 
-    model.cleanup();
+    for (Model& m : models)
+        m.cleanup();
     shader.cleanup();
 
     SDL_GL_DestroyContext(context);

@@ -3,6 +3,7 @@
 #include <string>
 
 #include <glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "shader.h"
 
@@ -90,14 +91,17 @@ void Shader::setFloat(const char* name, float value)
     glUniform1f(glGetUniformLocation(program, name), value);
 }
 
-void Shader::setMatrix(const char* name, float* matrix)
+void Shader::setMatrix(const char* name, glm::mat4 value)
 {
-    glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, matrix);
+    glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Shader::setVector(const char* name, const float* vector, int size)
+void Shader::setVec3(const char* name, glm::vec3 value)
 {
-    if (size == 2) glUniform2fv(glGetUniformLocation(program, name), 1, vector);
-    if (size == 3) glUniform3fv(glGetUniformLocation(program, name), 1, vector);
-    if (size == 4) glUniform4fv(glGetUniformLocation(program, name), 1, vector);
+    glUniform3fv(glGetUniformLocation(program, name), 1, glm::value_ptr(value));
+}
+
+void Shader::setVec4(const char* name, glm::vec4 value)
+{
+    glUniform4fv(glGetUniformLocation(program, name), 1, glm::value_ptr(value));
 }

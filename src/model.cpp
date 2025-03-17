@@ -113,6 +113,7 @@ int loadTexture(const aiTexture* texture)
     return id;
 }
 
+#include <iostream>
 // Get the textures that are defined in the material
 TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) {
     // Map the texture types to their corresponding names in the fragment shader
@@ -136,7 +137,17 @@ TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) 
         if (textureCache.count(assimpName)) {
             textures[samplerName] = textureCache[assimpName];
         } else {
-            unsigned int id = loadTexture(scene->GetEmbeddedTexture(assimpName.c_str()));
+            const aiTexture* texture = scene->GetEmbeddedTexture(assimpName.c_str());
+            // TODO: we should check if we can load the texture from a file
+            // TODO: also, if there's no texture we should default to a object color
+            // TODO: the model loading is also just really slow
+            // TODO: we're not applying the transformations to models
+            std::cout << "Texture name: " << assimpName.c_str() << "\n";
+            if (texture == nullptr) {
+                std::cout << "ERROR -- couldn't load: " << assimpName.c_str() << "\n";
+                continue;
+            }
+            unsigned int id = loadTexture(texture);
             textureCache[assimpName] = id;
             textures[samplerName] = id;
         }

@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(
   app
   src/main.cpp
+  src/camera.cpp
   src/model.cpp
   src/shader.cpp
 )
