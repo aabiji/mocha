@@ -50,22 +50,24 @@ unsigned int emptyTexture(unsigned char color)
     return id;
 }
 
-void Model::load(const char* path)
+void Model::load(const char* path, glm::mat4 matrix)
 {
+    transform = matrix;
+    defaultTextures["ambient"] = emptyTexture(35);
+    defaultTextures["diffuse"] = emptyTexture(255);
+    defaultTextures["specular"] = emptyTexture(128);
+    defaultTextures["emission"] = emptyTexture(0);
+
     Assimp::Importer importer;
 
-    int flags = aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs;
+    int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
+                aiProcess_CalcTangentSpace | aiProcess_FlipUVs;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
 
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
-
-    defaultTextures["ambient"] = emptyTexture(25);
-    defaultTextures["diffuse"] = emptyTexture(255);
-    defaultTextures["specular"] = emptyTexture(128);
-    defaultTextures["emission"] = emptyTexture(0);
 
     processNode(scene, scene->mRootNode);
 }
@@ -141,7 +143,7 @@ TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) 
             // TODO: we should check if we can load the texture from a file
             // TODO: also, if there's no texture we should default to a object color
             // TODO: the model loading is also just really slow
-            // TODO: we're not applying the transformations to models
+            // TODO: each mesh should have its own model matrix, right?
             std::cout << "Texture name: " << assimpName.c_str() << "\n";
             if (texture == nullptr) {
                 std::cout << "ERROR -- couldn't load: " << assimpName.c_str() << "\n";
@@ -207,6 +209,7 @@ void Model::draw(Shader& shader)
         }
 
         shader.setInt("hasNormalMap", mesh.textures.count("normal") > 0);
+        shader.setMatrix("model", transform);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
 }

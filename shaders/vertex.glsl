@@ -5,18 +5,29 @@ layout (location = 1) in vec3 normal;
 layout (location = 2) in vec3 tangent;
 layout (location = 3) in vec2 coord;
 
-out vec3 fragmentPosition;
-out vec4 lightPosition;
-out vec3 viewPosition;
-out vec3 vertexNormal;
-out vec2 textureCoordinate;
+// TODO: hardcoding the array sizes like that is dodgy 
+struct Light
+{
+    vec3 color;
+    vec3 position;
+
+    // Attenuation variables
+    float constant;
+    float linear;
+    float quadratic;
+};
 
 uniform vec3 viewPos;
-uniform vec4 lightPos;
-
 uniform mat4 view;
 uniform mat4 model;
 uniform mat4 projection;
+uniform Light lightSources[4];
+
+out vec3 fragmentPosition;
+out vec3 viewPosition;
+out vec3 vertexNormal;
+out vec2 textureCoordinate;
+out Light lights[4];
 
 void main()
 {
@@ -33,10 +44,14 @@ void main()
  
     // Map the vectors from world space to tangent space so that
     // all the lighting calculations can be done in tangent space
+    vertexNormal     = N;
     viewPosition     = TBN * viewPos;
-    lightPosition    = vec4(TBN * vec3(lightPos), lightPos.w);
     fragmentPosition = TBN * vec3(model * vec4(position, 1.0));
-    vertexNormal = N;
+    for (int i = 0; i < lights.length(); i++) {
+        vec3 p = TBN * vec3(model * vec4(lightSources[i].position, 1.0));
+        lights[i] = lightSources[i];
+        lights[i].position = p;
+    }
 
     gl_Position = projection * view * model * vec4(position, 1.0);
     textureCoordinate = coord;

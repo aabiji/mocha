@@ -29,7 +29,7 @@ struct Mesh
 class Model
 {
 public:
-    void load(const char* path);
+    void load(const char* path, glm::mat4 matrix);
     void draw(Shader& shader);
     void cleanup();
 private:
@@ -40,4 +40,5 @@ private:
     std::vector<Mesh> meshes;
     TextureMap textureCache;
     TextureMap defaultTextures;
+    glm::mat4 transform;
 };

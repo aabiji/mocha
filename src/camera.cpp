@@ -7,7 +7,7 @@ Camera::Camera(glm::vec3 _target, float _distance)
     target = _target;
     distance = _distance;
     position = glm::vec3(0.0, 0.0, _distance);
-    angle = pitch = 0;
+    pitch = yaw = 0;
     updatePosition();
 }
 
@@ -21,37 +21,30 @@ glm::mat4 Camera::getView()
 
 glm::mat4 Camera::getProjection(double w, double h)
 {
-    // 45 degree field of view
-    return glm::perspective(0.785398, w / h, 0.1, 100.0);
+    return glm::perspective(0.785398, w / h, 0.1, 100.0); // 45 degree field of view
 }
 
 void Camera::zoom(int direction)
 {
-    distance = std::max(3.0f, std::min(distance + direction, 25.0f));
+    distance = std::max(3.0f, std::min(distance + direction, 15.0f));
     updatePosition();
 }
 
-void Camera::rotate(float xoffset, float yoffset)
+void Camera::rotate(float offset)
 {
-    // Tilt up/down
-    pitch += yoffset * 0.5;
-    pitch = std::max(-5.0f, std::min(pitch, 5.0f));
-
-    // Rock left/right
-    angle += xoffset * 0.5;
-    if (angle < 0)   angle += 360;
-    if (angle > 360) angle -= 360;
-
+    yaw += offset;
+    if (yaw < 0)   yaw += 360;
+    if (yaw > 360) yaw -= 360;
     updatePosition();
 }
 
 void Camera::updatePosition()
 {
-    float a = glm::radians(angle);
+    float a = glm::radians(yaw);
     float b = glm::radians(pitch);
     position = glm::vec3(
         sin(a) * cos(b) * distance,
-        sin(b) * distance,
+        sin(b) * distance + 0.5,
         cos(a) * cos(b) * distance
     );
 }

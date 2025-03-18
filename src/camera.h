@@ -13,13 +13,14 @@ public:
 
     void zoom(int direction); // Zoom in (1) and out (-1)
 
-    // Rotate the camera around the target position
-    void rotate(float xoffset, float yoffset);
+    // Rotate the camera horizontally around the target position
+    void rotate(float offset);
 private:
     void updatePosition();
 
     float distance; // Distance from the target
-    float pitch, angle; // Pitch & the angle the camera is around the target
+    float pitch; // Vertical tilt (degrees)
+    float yaw; // Angle the camera is around the target (degrees)
 
     glm::vec3 position;
     glm::vec3 target; // Point the camera's looking at
