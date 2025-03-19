@@ -26,6 +26,22 @@ struct Mesh
     TextureMap textures;
 };
 
+struct BoundingBox
+{
+    glm::vec3 min;
+    glm::vec3 max;
+
+    BoundingBox() : min(1.0), max(0.0) {}
+
+    void update(glm::vec3 v)
+    {
+        bool smaller = v.x < min.x && v.y < min.y && v.z < min.z;
+        bool bigger = v.x > max.x && v.y > max.y && v.z > max.z;
+        min = smaller ? v : min;
+        max = bigger ? v : max;
+    }
+};
+
 class Model
 {
 public:
@@ -40,5 +56,6 @@ private:
     std::vector<Mesh> meshes;
     TextureMap textureCache;
     TextureMap defaultTextures;
+    BoundingBox globalBox;
     glm::mat4 transform;
 };

@@ -17,14 +17,16 @@
 #define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
 
 // TODO:
-// **Deadline**: by friday start researching the skeletal animation
-// Position the model on top of the floor
-// Lazy load the models (don't be showing a black screen) -- so show a loading message while the model is loading (load model in a seperate thread?)
-// Scale the models so that they are within a certain size
-// Improve the lighting -- add directional and point light (look at the lighting blender uses by default)
+// **Deadline**: start researching the skeletal animation by friday
+// If we can't load an embedded texture, check if we can load the texture from a file instead
+// Apply transforms to the meshes so that they are positioned correctly in local space
+// Scale and translate the model to position it on top of the floor
+// Stress test the model loading
+// Investigate better ways to pass structs to the shaders
+// - This better way should make sure we don't have to redefine the same struct in both the fragment and vertex shader
+// Improve the lighting some more
+// Load models on a different threads so we don't block the main trhead
 // Refactor and tidy up the code
-// Start researching skeletal animation
-// Clone mediapipe and start going through it
 
 struct Light
 {
@@ -138,6 +140,7 @@ int main()
 
     SDL_Event event;
     bool running = true;
+    std::string fpsCounter = "";
     glm::vec3 bg = normalizeRGB(70, 70, 70);
     Camera camera(glm::vec3(0.0, 0.0, 0.0), 4);
     std::vector<Light> lights;
@@ -203,11 +206,6 @@ int main()
             shader.setFloat((prefix = "quadratic").c_str(), 0.032);
         }
 
-        // TODO: should we be really counting the fps at the end -- but then the fps would be a frame behind...
-        unsigned int endMs = SDL_GetTicks();
-        float fps = std::floor(1000.0 / float(endMs - startMs));
-        std::string fpsCounter = std::format("FPS: {}", fps);
-
         for (Model& m : models)
             m.draw(shader);
 
@@ -223,6 +221,10 @@ int main()
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
+
+        unsigned int endMs = SDL_GetTicks();
+        float fps = std::floor(1000.0 / float(endMs - startMs));
+        fpsCounter = std::format("FPS: {}", fps);
     }
 
     for (Model& m : models)

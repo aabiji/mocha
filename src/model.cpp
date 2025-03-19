@@ -61,7 +61,8 @@ void Model::load(const char* path, glm::mat4 matrix)
     Assimp::Importer importer;
 
     int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_CalcTangentSpace | aiProcess_FlipUVs;
+                aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
+                aiProcess_GenBoundingBoxes;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
@@ -115,7 +116,6 @@ int loadTexture(const aiTexture* texture)
     return id;
 }
 
-#include <iostream>
 // Get the textures that are defined in the material
 TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) {
     // Map the texture types to their corresponding names in the fragment shader
@@ -140,15 +140,8 @@ TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) 
             textures[samplerName] = textureCache[assimpName];
         } else {
             const aiTexture* texture = scene->GetEmbeddedTexture(assimpName.c_str());
-            // TODO: we should check if we can load the texture from a file
-            // TODO: also, if there's no texture we should default to a object color
-            // TODO: the model loading is also just really slow
-            // TODO: each mesh should have its own model matrix, right?
-            std::cout << "Texture name: " << assimpName.c_str() << "\n";
-            if (texture == nullptr) {
-                std::cout << "ERROR -- couldn't load: " << assimpName.c_str() << "\n";
+            if (texture == nullptr)
                 continue;
-            }
             unsigned int id = loadTexture(texture);
             textureCache[assimpName] = id;
             textures[samplerName] = id;
@@ -168,6 +161,9 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
 {
     Mesh mesh;
     mesh.textures = getTextures(scene, scene->mMaterials[data->mMaterialIndex]);
+
+    globalBox.update(toVec3(data->mAABB.mMin));
+    globalBox.update(toVec3(data->mAABB.mMax));
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
         for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
