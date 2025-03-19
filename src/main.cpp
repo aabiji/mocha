@@ -6,6 +6,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <SDL3/SDL.h>
 
+#define IMGUI_USER_CONFIG "imgui_config.h"
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_opengl3.h"
+
 #include "camera.h"
 #include "model.h"
 
@@ -13,6 +18,9 @@
 
 // TODO:
 // **Deadline**: by friday start researching the skeletal animation
+// Position the model on top of the floor
+// Lazy load the models (don't be showing a black screen) -- so show a loading message while the model is loading (load model in a seperate thread?)
+// Scale the models so that they are within a certain size
 // Improve the lighting -- add directional and point light (look at the lighting blender uses by default)
 // Refactor and tidy up the code
 // Start researching skeletal animation
@@ -81,6 +89,17 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext(nullptr);
+    ImGui::StyleColorsDark();
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.Fonts->AddFontFromFileTTF("../assets/Roboto-Regular.ttf", 15);
+
+    ImGui_ImplSDL3_InitForOpenGL(window, context);
+    ImGui_ImplOpenGL3_Init("#version 460");
+
     Shader shader;
     try {
         shader.load(GL_VERTEX_SHADER, "../shaders/vertex.glsl");
@@ -93,12 +112,11 @@ int main()
 
     //../assets/male-model.obj
     //../assets/rigged-guy.fbx
-    //../assets/Audio-R8/Models/Audi R8.fbx
     //../assets/Star Marine Trooper/StarMarineTrooper.obj
-    //../assets/characters/Barbarian.fbx
     std::vector<Model> models;
     std::vector<std::string> paths = {
         "../assets/cube.obj", "../assets/fox.glb"
+       //"../assets/cube.obj", "../assets/characters/Barbarian.fbx"
     };
     try {
         shader.use();
@@ -133,7 +151,11 @@ int main()
     lights.push_back(Light(glm::vec3(5.0, 1.0, 0.0), normalizeRGB(212, 212, 212)));
 
     while (running) {
+        unsigned int startMs = SDL_GetTicks();
+
         while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL3_ProcessEvent(&event);
+
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
                 break;
@@ -181,16 +203,35 @@ int main()
             shader.setFloat((prefix = "quadratic").c_str(), 0.032);
         }
 
+        // TODO: should we be really counting the fps at the end -- but then the fps would be a frame behind...
+        unsigned int endMs = SDL_GetTicks();
+        float fps = std::floor(1000.0 / float(endMs - startMs));
+        std::string fpsCounter = std::format("FPS: {}", fps);
+
         for (Model& m : models)
             m.draw(shader);
 
+        // Draw the UI
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Info");
+        ImGui::Text("%s", fpsCounter.c_str());
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
-        // TODO: add stable fps and draw the text
     }
 
     for (Model& m : models)
         m.cleanup();
     shader.cleanup();
+
+    ImGui_ImplSDL3_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui::DestroyContext();
 
     SDL_GL_DestroyContext(context);
     SDL_DestroyWindow(window);
