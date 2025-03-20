@@ -45,9 +45,17 @@ struct BoundingBox
 class Model
 {
 public:
-    void load(const char* path, glm::mat4 matrix);
+    void load(const char* path);
     void draw(Shader& shader);
     void cleanup();
+
+    // Move the model to the target y position
+    void setY(float targetY);
+
+    // Scale the model to the target height while preserving its aspect ratio
+    void setHeight(float targetHeight);
+
+    glm::mat4 transform;
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, const aiMesh* meshData);
@@ -57,5 +65,4 @@ private:
     TextureMap textureCache;
     TextureMap defaultTextures;
     BoundingBox globalBox;
-    glm::mat4 transform;
 };

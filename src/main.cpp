@@ -20,7 +20,6 @@
 // **Deadline**: start researching the skeletal animation by friday
 // If we can't load an embedded texture, check if we can load the texture from a file instead
 // Apply transforms to the meshes so that they are positioned correctly in local space
-// Scale and translate the model to position it on top of the floor
 // Stress test the model loading
 // Investigate better ways to pass structs to the shaders
 // - This better way should make sure we don't have to redefine the same struct in both the fragment and vertex shader
@@ -118,20 +117,25 @@ int main()
     std::vector<Model> models;
     std::vector<std::string> paths = {
         "../assets/cube.obj", "../assets/fox.glb"
-       //"../assets/cube.obj", "../assets/characters/Barbarian.fbx"
+        //"../assets/cube.obj", "../assets/characters/Barbarian.fbx"
     };
     try {
         shader.use();
         for (std::string path : paths) {
             Model m;
+            m.load(path.c_str());
 
-            glm::mat4 matrix = glm::mat4(1.0);
             if (path == "../assets/cube.obj") {
-                matrix = glm::scale(matrix, glm::vec3(5.0, 0.5, 5.0));
-                matrix = glm::translate(matrix, glm::vec3(0.0, -1.0, 0.0));
+                // Scale and position the floor
+                m.setHeight(0.5);
+                m.setY(-1.0);
+            } else {
+                // Scale the model to have a height of
+                // 1.0 and position it on top of the floor
+                m.setHeight(1.0);
+                m.setY(1.0);
             }
 
-            m.load(path.c_str(), matrix);
             models.push_back(m);
         }
     } catch (std::string message) {
@@ -193,10 +197,6 @@ int main()
         shader.setMatrix("projection", camera.getProjection(width, height));
         shader.setVec3("viewPos", camera.getPosition());
 
-        // TODO:
-        // Does assimp give us the size of a 3d model (bounding box)??
-        // There has got to be a better to pass data into shader uniforms...
-        // Our implementation is incredibly dodgy though
         for (size_t i = 0; i < lights.size(); i++) {
             std::string prefix = std::format("lightSources[{}].", i);
             shader.setVec3((prefix + "position").c_str(), lights[i].position);

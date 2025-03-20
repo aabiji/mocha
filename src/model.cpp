@@ -50,9 +50,10 @@ unsigned int emptyTexture(unsigned char color)
     return id;
 }
 
-void Model::load(const char* path, glm::mat4 matrix)
+#include <iostream>
+void Model::load(const char* path)
 {
-    transform = matrix;
+    transform = glm::mat4(1.0);
     defaultTextures["ambient"] = emptyTexture(35);
     defaultTextures["diffuse"] = emptyTexture(255);
     defaultTextures["specular"] = emptyTexture(128);
@@ -208,6 +209,28 @@ void Model::draw(Shader& shader)
         shader.setMatrix("model", transform);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
+}
+
+void Model::setHeight(float targetHeight)
+{
+    float height = globalBox.max.y - globalBox.min.y;
+    float ratio = targetHeight / height;
+    transform = glm::scale(transform, glm::vec3(ratio, ratio, ratio));
+}
+
+// TODO: this isn't quite right...
+void Model::setY(float targetY)
+{
+    std::cout << "Top now: " << globalBox.max.y << "\n";
+
+    float y = globalBox.max.y; // The TOP of the model is at the targetY
+
+    float diff = y > targetY ? y - targetY : targetY - y;
+    //std::cout << "Target: " << targetY << " Min: " << globalBox.min.y << " Diff: " << diff << "\n";
+    transform = glm::translate(transform, glm::vec3(0.0, diff, 0.0));
+
+    glm::vec3 moved = transform * glm::vec4(globalBox.max, 1.0);
+    std::cout << "Top y now: " << moved.y << "\n";
 }
 
 void Model::cleanup()
