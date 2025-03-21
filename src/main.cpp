@@ -25,6 +25,7 @@
 // - This better way should make sure we don't have to redefine the same struct in both the fragment and vertex shader
 // Improve the lighting some more
 // Load models on a different threads so we don't block the main trhead
+// Batch rendering???
 // Refactor and tidy up the code
 
 struct Light
@@ -127,13 +128,13 @@ int main()
 
             if (path == "../assets/cube.obj") {
                 // Scale and position the floor
-                m.setHeight(0.5);
-                m.setY(-1.0);
+                m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
+                m.setPosition(glm::vec3(0.0, -0.5, 0.0));
             } else {
                 // Scale the model to have a height of
                 // 1.0 and position it on top of the floor
-                m.setHeight(1.0);
-                m.setY(1.0);
+                m.setSize(glm::vec3(0.0, 1.0, 0.0), true);
+                m.setPosition(glm::vec3(0.0, 0.0, 0.0));
             }
 
             models.push_back(m);

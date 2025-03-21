@@ -49,20 +49,19 @@ public:
     void draw(Shader& shader);
     void cleanup();
 
-    // Move the model to the target y position
-    void setY(float targetY);
-
-    // Scale the model to the target height while preserving its aspect ratio
-    void setHeight(float targetHeight);
-
-    glm::mat4 transform;
+    void setPosition(glm::vec3 v);
+    void setSize(glm::vec3 size, bool preserveAspectRatio);
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, const aiMesh* meshData);
     TextureMap getTextures(const aiScene* scene, const aiMaterial* material);
 
     std::vector<Mesh> meshes;
+
     TextureMap textureCache;
     TextureMap defaultTextures;
+
+    glm::vec3 scale;
+    glm::vec3 position;
     BoundingBox globalBox;
 };

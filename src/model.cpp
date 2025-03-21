@@ -50,10 +50,11 @@ unsigned int emptyTexture(unsigned char color)
     return id;
 }
 
-#include <iostream>
 void Model::load(const char* path)
 {
-    transform = glm::mat4(1.0);
+    position = glm::vec3(1.0);
+    scale = glm::vec3(1.0);
+
     defaultTextures["ambient"] = emptyTexture(35);
     defaultTextures["diffuse"] = emptyTexture(255);
     defaultTextures["specular"] = emptyTexture(128);
@@ -191,8 +192,32 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
     meshes.push_back(mesh);
 }
 
+void Model::setPosition(glm::vec3 v) { position = v; }
+
+void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
+{
+    float xScale = size.x / (globalBox.max.x - globalBox.min.x);
+    float yScale = size.y / (globalBox.max.y - globalBox.min.y);
+    float zScale = size.z / (globalBox.max.z - globalBox.min.z);
+
+    if (preserveAspectRatio) {
+        float uniformScale = std::max({ xScale, yScale, zScale });
+        scale = glm::vec3(uniformScale);
+    } else {
+        scale = glm::vec3(xScale, yScale, zScale);
+    }
+
+    globalBox.min *= scale;
+    globalBox.max *= scale;
+}
+
 void Model::draw(Shader& shader)
 {
+    // translate, rotate, scale (so that it's actually done in reverse)
+    glm::mat4 transform = glm::mat4(1.0);
+    transform = glm::translate(transform, position);
+    transform = glm::scale(transform, scale);
+
     for (Mesh& mesh : meshes) {
         glBindVertexArray(mesh.vao);
 
@@ -209,28 +234,6 @@ void Model::draw(Shader& shader)
         shader.setMatrix("model", transform);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
-}
-
-void Model::setHeight(float targetHeight)
-{
-    float height = globalBox.max.y - globalBox.min.y;
-    float ratio = targetHeight / height;
-    transform = glm::scale(transform, glm::vec3(ratio, ratio, ratio));
-}
-
-// TODO: this isn't quite right...
-void Model::setY(float targetY)
-{
-    std::cout << "Top now: " << globalBox.max.y << "\n";
-
-    float y = globalBox.max.y; // The TOP of the model is at the targetY
-
-    float diff = y > targetY ? y - targetY : targetY - y;
-    //std::cout << "Target: " << targetY << " Min: " << globalBox.min.y << " Diff: " << diff << "\n";
-    transform = glm::translate(transform, glm::vec3(0.0, diff, 0.0));
-
-    glm::vec3 moved = transform * glm::vec4(globalBox.max, 1.0);
-    std::cout << "Top y now: " << moved.y << "\n";
 }
 
 void Model::cleanup()
