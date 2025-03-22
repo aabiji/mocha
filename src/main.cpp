@@ -13,6 +13,7 @@
 
 #include "camera.h"
 #include "model.h"
+#include "pool.h"
 
 #define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
 
@@ -36,12 +37,11 @@ struct Light
 };
 
 enum LogType { DEBUG = 32, WARN = 33, ERROR = 31 };
-void log(LogType type, std::string message, bool newline = true)
+void log(LogType type, std::string message)
 {
     std::cout << "[\x1b[1;" << type << "m";
     std::cout << (type == DEBUG ? "DEBUG" : type == WARN ? "WARN" : "ERROR");
-    std::cout << "\x1b[;39m] " << message;
-    if (newline) std::cout << "\n";
+    std::cout << "\x1b[;39m] " << message << "\n";
     if (type == ERROR) exit(1);
 }
 
@@ -58,7 +58,7 @@ void debugCallback(
     LogType t = severity == GL_DEBUG_SEVERITY_HIGH
         ? ERROR
         : severity == GL_DEBUG_SEVERITY_MEDIUM ? WARN : DEBUG;
-    log(t, message, false);
+    log(t, message);
 }
 
 int main()
@@ -112,35 +112,37 @@ int main()
         log(ERROR, message);
     }
 
-    //../assets/male-model.obj
-    //../assets/rigged-guy.fbx
-    //../assets/Star Marine Trooper/StarMarineTrooper.obj
     std::vector<Model> models;
     std::vector<std::string> paths = {
         "../assets/cube.obj", "../assets/fox.glb"
         //"../assets/cube.obj", "../assets/characters/Barbarian.fbx"
+        //"../assets/cube.obj", "../assets/Star Marine Trooper/StarMarineTrooper.obj"
+        //"../assets/cube.obj", "../assets/male-model.obj",
+        //"../assets/cube.obj", "../assets/rigged-guy.fbx" // Need to orient properly
+        //"../assets/cube.obj", "../assets/Audio-R8/Models/Audi R8.fbx",
+        //"../assets/cube.obj", "../assets/assimp-mdb/fbx/SeaLife_Rigged/Green_Sea_Turtle.fbx",
     };
-    try {
-        shader.use();
-        for (std::string path : paths) {
-            Model m;
-            m.load(path.c_str());
-
-            if (path == "../assets/cube.obj") {
-                // Scale and position the floor
-                m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
-                m.setPosition(glm::vec3(0.0, -0.5, 0.0));
-            } else {
-                // Scale the model to have a height of
-                // 1.0 and position it on top of the floor
-                m.setSize(glm::vec3(0.0, 1.0, 0.0), true);
-                m.setPosition(glm::vec3(0.0, 0.0, 0.0));
+    ThreadPool pool(3);
+    for (std::string path : paths) {
+        pool.dispatch([&, path] {
+            shader.use();
+            try {
+                Model m(path);
+                if (path == "../assets/cube.obj") {
+                    // Scale and position the floor
+                    m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
+                    m.setPosition(glm::vec3(0.0, -0.5, 0.0));
+                } else {
+                    // Scale the model to have a height of
+                    // 1.0 and position it on top of the floor
+                    m.setSize(glm::vec3(0.0, 1.0, 0.0), true);
+                    m.setPosition(glm::vec3(0.0, 0.0, 0.0));
+                }
+                models.push_back(m);
+            } catch (std::string message) {
+                log(ERROR, message);
             }
-
-            models.push_back(m);
-        }
-    } catch (std::string message) {
-        log(ERROR, message);
+        });
     }
 
     SDL_Event event;
@@ -231,6 +233,7 @@ int main()
     for (Model& m : models)
         m.cleanup();
     shader.cleanup();
+    pool.terminate();
 
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplOpenGL3_Shutdown();

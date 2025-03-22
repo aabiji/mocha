@@ -3,6 +3,7 @@
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
 #include <unordered_map>
+#include <string>
 #include <vector>
 
 #include "shader.h"
@@ -45,7 +46,7 @@ struct BoundingBox
 class Model
 {
 public:
-    void load(const char* path);
+    Model(std::string path);
     void draw(Shader& shader);
     void cleanup();
 

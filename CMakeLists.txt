@@ -24,6 +24,7 @@ add_executable(
     src/main.cpp
     src/camera.cpp
     src/model.cpp
+    src/pool.cpp
     src/shader.cpp
 
     # Imgui

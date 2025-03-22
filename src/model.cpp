@@ -50,10 +50,15 @@ unsigned int emptyTexture(unsigned char color)
     return id;
 }
 
-void Model::load(const char* path)
+// FIXME:
+// So now our app is multithreaded and we're having some trouble
+// using assimp over multiple threads. What can we do?
+// Genuinely don't understand how assimp can't read the node tree properly.
+#include <iostream>
+Model::Model(std::string path)
 {
-    position = glm::vec3(1.0);
     scale = glm::vec3(1.0);
+    position = glm::vec3(1.0);
 
     defaultTextures["ambient"] = emptyTexture(35);
     defaultTextures["diffuse"] = emptyTexture(255);
@@ -199,6 +204,8 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
     float xScale = size.x / (globalBox.max.x - globalBox.min.x);
     float yScale = size.y / (globalBox.max.y - globalBox.min.y);
     float zScale = size.z / (globalBox.max.z - globalBox.min.z);
+
+    // TODO: we may or may not be scaling the normals properly???
 
     if (preserveAspectRatio) {
         float uniformScale = std::max({ xScale, yScale, zScale });
