@@ -2,8 +2,6 @@
 #include <assimp/postprocess.h>
 #include <glad.h>
 #include <glm/gtc/type_ptr.hpp>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 #include "model.h"
 
@@ -18,55 +16,8 @@ void BoundingBox::update(glm::vec3 v)
     max = bigger ? v : max;
 }
 
-// Load the texture pixels and metadata
-Texture::Texture(const aiTexture* data)
-{
-    width = data->mWidth;
-    height = data->mHeight;
-
-    int channels = 4;
-    unsigned char* raw = (unsigned char *)data->pcData;
-    bool compressed = height == 0;
-
-    if (compressed)
-        raw = stbi_load_from_memory(raw, sizeof(aiTexel) * width, &width, &height, &channels, 0);
-
-    format = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
-    pixels = std::shared_ptr<unsigned char[]>(new unsigned char[width * height * channels]);
-
-    std::memcpy(pixels.get(), raw, width * height * channels);
-    if (compressed) free(raw);
-}
-
-// Create an empty 1x1 texture
-Texture::Texture(unsigned char color)
-{
-    format = GL_RGB;
-    width = height = 1;
-    pixels = std::shared_ptr<unsigned char[]>(new unsigned char[3]);
-
-    unsigned char* raw = new unsigned char[3]{ color, color, color };
-    std::memcpy(pixels.get(), raw, 3);
-    delete[] raw;
-}
-
-void Texture::init()
-{
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels.get());
-    glGenerateMipmap(GL_TEXTURE_2D);
-    pixels.reset(); // Won't be needing this anymore
-}
-
 void Mesh::init()
 {
-    initialized = true;
-
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
@@ -104,15 +55,11 @@ void Mesh::cleanup()
     }
 }
 
-Model::Model(std::string path)
+Model::Model(std::string path, std::string textureBasePath)
+    : textureLoader(textureBasePath)
 {
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
-
-    defaultTextures["ambient"]  = Texture(35);
-    defaultTextures["diffuse"]  = Texture(255);
-    defaultTextures["specular"] = Texture(150);
-    defaultTextures["emission"] = Texture((unsigned char)0);
 
     Assimp::Importer importer;
     int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
@@ -128,6 +75,13 @@ Model::Model(std::string path)
     processNode(scene, scene->mRootNode);
 }
 
+void Model::cleanup()
+{
+    for (Mesh& mesh : meshes) {
+        mesh.cleanup();
+    }
+}
+
 void Model::processNode(const aiScene* scene, const aiNode* node)
 {
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
@@ -139,51 +93,10 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     }
 }
 
-// Get the textures that are defined in the material
-TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) {
-    // Map the texture types to their corresponding names in the fragment shader
-    std::unordered_map<aiTextureType, const char*> types = {
-        { aiTextureType_DIFFUSE,  "diffuse" },
-        { aiTextureType_SPECULAR, "specular" },
-        { aiTextureType_AMBIENT, "ambient" },
-        { aiTextureType_NORMALS, "normal" },
-        { aiTextureType_EMISSIVE, "emission" }
-    };
-
-    TextureMap textures;
-    for (auto& [type, samplerName]: types) {
-        if (material->GetTextureCount(type) == 0)
-            continue;
-
-        aiString aiName;
-        material->GetTexture(type, 0, &aiName);
-        std::string assimpName = std::string(aiName.C_Str());
-
-        if (textureCache.count(assimpName)) {
-            textures[samplerName] = textureCache[assimpName];
-        } else {
-            const aiTexture* data = scene->GetEmbeddedTexture(assimpName.c_str());
-            if (data == nullptr)
-                continue;
-            Texture t(data);
-            textureCache[assimpName] = t;
-            textures[samplerName] = t;
-        }
-    }
-
-    // Insert the default texture in place of a missing texture
-    for (auto& [name, t] : defaultTextures) {
-        if (textures.count(name) == 0)
-            textures[name] = t;
-    }
-
-    return textures;
-}
-
 void Model::processMesh(const aiScene* scene, const aiMesh* data)
 {
     Mesh mesh;
-    mesh.textures = getTextures(scene, scene->mMaterials[data->mMaterialIndex]);
+    mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
     mesh.initialized = false;
 
     globalBox.update(toVec3(data->mAABB.mMin));
@@ -255,15 +168,10 @@ void Model::draw(Shader& shader)
             index++;
         }
 
-        shader.setInt("hasNormalMap", mesh.textures.count("normal") > 0);
         shader.setMatrix("model", transform);
+        shader.setInt("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
-}
 
-void Model::cleanup()
-{
-    for (Mesh& mesh : meshes) {
-        mesh.cleanup();
-    }
+    textureLoader.cleanup(); // Don't need the texture pixels anymore
 }

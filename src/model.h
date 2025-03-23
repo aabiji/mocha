@@ -1,14 +1,13 @@
 #pragma once
 
-#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
 
 #include "shader.h"
+#include "textures.h"
 
 struct Vertex
 {
@@ -18,33 +17,14 @@ struct Vertex
     glm::vec2 coord;
 };
 
-class Texture
-{
-public:
-    // Load the pixel data
-    Texture(const aiTexture* data);
-    Texture(unsigned char color);
-    Texture() {}
-
-    // Initialize the OpenGL texture object
-    void init();
-
-    unsigned int id;
-private:
-    int width, height, format;
-    std::shared_ptr<unsigned char[]> pixels;
-};
-
-using TextureMap = std::unordered_map<std::string, Texture>;
-
 struct Mesh
 {
     // Initialize/clenaup the OpenGL objects
     void init();
     void cleanup();
+    bool initialized;
 
     // These will be set when the vertices are loaded
-    bool initialized;
     unsigned int vao, vbo, ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
@@ -63,8 +43,7 @@ struct BoundingBox
 class Model
 {
 public:
-    Model(std::string path);
-
+    Model(std::string path, std::string textureBasePath);
     void draw(Shader& shader);
     void cleanup();
 
@@ -73,14 +52,10 @@ public:
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, const aiMesh* meshData);
-    TextureMap getTextures(const aiScene* scene, const aiMaterial* material);
-
-    std::vector<Mesh> meshes;
-
-    TextureMap textureCache;
-    TextureMap defaultTextures;
 
     glm::vec3 scale;
     glm::vec3 position;
     BoundingBox globalBox;
+    std::vector<Mesh> meshes;
+    TextureLoader textureLoader;
 };

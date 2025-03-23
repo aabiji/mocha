@@ -26,6 +26,7 @@ add_executable(
     src/model.cpp
     src/pool.cpp
     src/shader.cpp
+    src/textures.cpp
 
     # Imgui
     ${imgui_SOURCE_DIR}/imgui.cpp

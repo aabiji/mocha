@@ -17,15 +17,24 @@
 
 #define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
 
-// TODO:
-// **Deadline**: start researching the skeletal animation by friday
-// If we can't load an embedded texture, check if we can load the texture from a file instead
-// Apply transforms to the meshes so that they are positioned correctly in local space
-// Investigate better ways to pass structs to the shaders
-// - This better way should make sure we don't have to redefine the same struct in both the fragment and vertex shader
-// Improve the lighting some more
-// Batch rendering???
-// Refactor and tidy up the code
+/*
+Can get nice models from here: https://clara.io/
+
+Each aiNode also has its own transform, so we should apply that transform
+matrix when drawing the meshes.
+
+Can we improve the lighting so that the ground is brighter and shinier?
+We should also refactor our vertex and fragment shaders.
+
+Also, for some of the models we don't see anything. Why?
+
+Can we use uniform buffer objects to pass structs into the vertex and fragment shaders
+in a more convenient and performant way (not have to redefine the same struct twice, etc)?
+
+So how does skeletal animation work?
+
+So how does batch rendering work?
+*/
 
 struct Light
 {
@@ -112,19 +121,15 @@ int main()
 
     std::vector<Model> models;
     std::vector<std::string> paths = {
-        "../assets/cube.obj", "../assets/fox.glb"
-        //"../assets/cube.obj", "../assets/characters/Barbarian.fbx"
-        //"../assets/cube.obj", "../assets/Star Marine Trooper/StarMarineTrooper.obj"
-        //"../assets/cube.obj", "../assets/male-model.obj",
-        //"../assets/cube.obj", "../assets/rigged-guy.fbx" // Need to orient properly
-        //"../assets/cube.obj", "../assets/Audio-R8/Models/Audi R8.fbx",
-        //"../assets/cube.obj", "../assets/assimp-mdb/fbx/SeaLife_Rigged/Green_Sea_Turtle.fbx",
+        //"../assets/cube.obj", "../assets/fox.glb",
+        "../assets/cube.obj", "../assets/CartoonCharacters/Knight.fbx",
+        //"../assets/cube.obj", "../assets/nathan/rp_nathan_animated_003_walking.fbx", // also don't see shit
     };
     ThreadPool pool(3);
     for (std::string path : paths) {
         pool.dispatch([&, path] {
             try {
-                Model m(path);
+                Model m(path, "../assets/CartoonCharacters/");
                 if (path == "../assets/cube.obj") {
                     // Scale and position the floor
                     m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
