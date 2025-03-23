@@ -20,7 +20,7 @@ void ThreadPool::terminate()
     }
 }
 
-void ThreadPool::dispatch(std::function<void()> task)
+void ThreadPool::dispatch(Task task)
 {
     std::unique_lock<std::mutex> lock(guard);
     tasks.push(task);
@@ -30,7 +30,7 @@ void ThreadPool::dispatch(std::function<void()> task)
 void ThreadPool::threadLoop()
 {
     while (true) {
-        std::function<void()> task;
+        Task task;
         {
             std::unique_lock<std::mutex> lock(guard);
             var.wait(lock, [this]{ return !tasks.empty() || stop; });

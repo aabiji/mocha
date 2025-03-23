@@ -1,17 +1,72 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <glad.h>
 #include <glm/gtc/type_ptr.hpp>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #include "model.h"
 
 #define toVec3(v) glm::vec3(v.x, v.y, v.z)
 #define toVec2(v) glm::vec2(v.x, v.y)
 
+void BoundingBox::update(glm::vec3 v)
+{
+    bool smaller = v.x < min.x && v.y < min.y && v.z < min.z;
+    bool bigger = v.x > max.x && v.y > max.y && v.z > max.z;
+    min = smaller ? v : min;
+    max = bigger ? v : max;
+}
+
+// Load the texture pixels and metadata
+Texture::Texture(const aiTexture* data)
+{
+    width = data->mWidth;
+    height = data->mHeight;
+
+    int channels = 4;
+    unsigned char* raw = (unsigned char *)data->pcData;
+    bool compressed = height == 0;
+
+    if (compressed)
+        raw = stbi_load_from_memory(raw, sizeof(aiTexel) * width, &width, &height, &channels, 0);
+
+    format = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
+    pixels = std::shared_ptr<unsigned char[]>(new unsigned char[width * height * channels]);
+
+    std::memcpy(pixels.get(), raw, width * height * channels);
+    if (compressed) free(raw);
+}
+
+// Create an empty 1x1 texture
+Texture::Texture(unsigned char color)
+{
+    format = GL_RGB;
+    width = height = 1;
+    pixels = std::shared_ptr<unsigned char[]>(new unsigned char[3]);
+
+    unsigned char* raw = new unsigned char[3]{ color, color, color };
+    std::memcpy(pixels.get(), raw, 3);
+    delete[] raw;
+}
+
+void Texture::init()
+{
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels.get());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    pixels.reset(); // Won't be needing this anymore
+}
+
 void Mesh::init()
 {
+    initialized = true;
+
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
@@ -31,42 +86,35 @@ void Mesh::init()
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexes.size() * sizeof(unsigned int), indexes.data(), GL_STATIC_DRAW);
+
+    for (auto& [sampler, texture] : textures) {
+        texture.init();
+    }
+
+    vertices.clear(); // Won't need this anymore
 }
 
-// Create an empty 1x1 texture
-unsigned int emptyTexture(unsigned char color)
+void Mesh::cleanup()
 {
-    unsigned int id;
-    unsigned char data[] = { color, color, color };
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    return id;
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    for (auto &t : textures) {
+        glDeleteTextures(1, &t.second.id);
+    }
 }
 
-// FIXME:
-// So now our app is multithreaded and we're having some trouble
-// using assimp over multiple threads. What can we do?
-// Genuinely don't understand how assimp can't read the node tree properly.
-#include <iostream>
 Model::Model(std::string path)
 {
     scale = glm::vec3(1.0);
-    position = glm::vec3(1.0);
+    position = glm::vec3(0.0);
 
-    defaultTextures["ambient"] = emptyTexture(35);
-    defaultTextures["diffuse"] = emptyTexture(255);
-    defaultTextures["specular"] = emptyTexture(128);
-    defaultTextures["emission"] = emptyTexture(0);
+    defaultTextures["ambient"]  = Texture(35);
+    defaultTextures["diffuse"]  = Texture(255);
+    defaultTextures["specular"] = Texture(150);
+    defaultTextures["emission"] = Texture((unsigned char)0);
 
     Assimp::Importer importer;
-
     int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
                 aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
                 aiProcess_GenBoundingBoxes;
@@ -89,38 +137,6 @@ void Model::processNode(const aiScene* scene, const aiNode* node)
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
         processNode(scene, node->mChildren[i]);
     }
-}
-
-// Setup a texture object and return its id
-int loadTexture(const aiTexture* texture)
-{
-    unsigned int id;
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    int width = texture->mWidth;
-    int height = texture->mHeight;
-    int internalFormat = GL_RGBA;
-    int channels = 4;
-
-    unsigned char* data = (unsigned char*)texture->pcData;
-    bool compressed = height == 0;
-
-    if (compressed) {
-        data = stbi_load_from_memory(data, sizeof(aiTexel) * width, &width, &height, &channels, 0);
-        internalFormat = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
-    }
-
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    if (compressed)
-        free(data);
-    return id;
 }
 
 // Get the textures that are defined in the material
@@ -146,12 +162,12 @@ TextureMap Model::getTextures(const aiScene* scene, const aiMaterial* material) 
         if (textureCache.count(assimpName)) {
             textures[samplerName] = textureCache[assimpName];
         } else {
-            const aiTexture* texture = scene->GetEmbeddedTexture(assimpName.c_str());
-            if (texture == nullptr)
+            const aiTexture* data = scene->GetEmbeddedTexture(assimpName.c_str());
+            if (data == nullptr)
                 continue;
-            unsigned int id = loadTexture(texture);
-            textureCache[assimpName] = id;
-            textures[samplerName] = id;
+            Texture t(data);
+            textureCache[assimpName] = t;
+            textures[samplerName] = t;
         }
     }
 
@@ -168,6 +184,7 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
 {
     Mesh mesh;
     mesh.textures = getTextures(scene, scene->mMaterials[data->mMaterialIndex]);
+    mesh.initialized = false;
 
     globalBox.update(toVec3(data->mAABB.mMin));
     globalBox.update(toVec3(data->mAABB.mMax));
@@ -193,8 +210,7 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
         mesh.vertices.push_back(v);
     }
 
-    mesh.init();
-    meshes.push_back(mesh);
+    meshes.push_back(std::move(mesh));
 }
 
 void Model::setPosition(glm::vec3 v) { position = v; }
@@ -204,8 +220,6 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
     float xScale = size.x / (globalBox.max.x - globalBox.min.x);
     float yScale = size.y / (globalBox.max.y - globalBox.min.y);
     float zScale = size.z / (globalBox.max.z - globalBox.min.z);
-
-    // TODO: we may or may not be scaling the normals properly???
 
     if (preserveAspectRatio) {
         float uniformScale = std::max({ xScale, yScale, zScale });
@@ -226,14 +240,18 @@ void Model::draw(Shader& shader)
     transform = glm::scale(transform, scale);
 
     for (Mesh& mesh : meshes) {
+        if (!mesh.initialized) {
+            mesh.initialized = true;
+            mesh.init();
+        }
         glBindVertexArray(mesh.vao);
 
         // Bind the texture samplers
         int index = 0;
-        for (auto& [sampler, id] : mesh.textures) {
+        for (auto& [sampler, texture] : mesh.textures) {
             glActiveTexture(GL_TEXTURE0 + index);
             shader.setInt(("material." + sampler).c_str(), index);
-            glBindTexture(GL_TEXTURE_2D, id);
+            glBindTexture(GL_TEXTURE_2D, texture.id);
             index++;
         }
 
@@ -246,11 +264,6 @@ void Model::draw(Shader& shader)
 void Model::cleanup()
 {
     for (Mesh& mesh : meshes) {
-        glDeleteVertexArrays(1, &mesh.vao);
-        glDeleteBuffers(1, &mesh.vbo);
-        glDeleteBuffers(1, &mesh.ebo);
-        for (auto& t : mesh.textures) {
-            glDeleteTextures(1, &t.second);
-        }
+        mesh.cleanup();
     }
 }

@@ -21,11 +21,9 @@
 // **Deadline**: start researching the skeletal animation by friday
 // If we can't load an embedded texture, check if we can load the texture from a file instead
 // Apply transforms to the meshes so that they are positioned correctly in local space
-// Stress test the model loading
 // Investigate better ways to pass structs to the shaders
 // - This better way should make sure we don't have to redefine the same struct in both the fragment and vertex shader
 // Improve the lighting some more
-// Load models on a different threads so we don't block the main trhead
 // Batch rendering???
 // Refactor and tidy up the code
 
@@ -125,7 +123,6 @@ int main()
     ThreadPool pool(3);
     for (std::string path : paths) {
         pool.dispatch([&, path] {
-            shader.use();
             try {
                 Model m(path);
                 if (path == "../assets/cube.obj") {
@@ -206,7 +203,7 @@ int main()
             shader.setVec3((prefix + "color").c_str(), lights[i].color);
             shader.setFloat((prefix + "constant").c_str(), 1.0);
             shader.setFloat((prefix + "linear").c_str(), 0.08);
-            shader.setFloat((prefix = "quadratic").c_str(), 0.032);
+            shader.setFloat((prefix + "quadratic").c_str(), 0.032);
         }
 
         for (Model& m : models)

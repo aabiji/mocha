@@ -1,10 +1,12 @@
 #pragma once
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
-#include <unordered_map>
-#include <string>
-#include <vector>
 
 #include "shader.h"
 
@@ -16,11 +18,33 @@ struct Vertex
     glm::vec2 coord;
 };
 
-using TextureMap = std::unordered_map<std::string, unsigned int>;
+class Texture
+{
+public:
+    // Load the pixel data
+    Texture(const aiTexture* data);
+    Texture(unsigned char color);
+    Texture() {}
+
+    // Initialize the OpenGL texture object
+    void init();
+
+    unsigned int id;
+private:
+    int width, height, format;
+    std::shared_ptr<unsigned char[]> pixels;
+};
+
+using TextureMap = std::unordered_map<std::string, Texture>;
 
 struct Mesh
 {
+    // Initialize/clenaup the OpenGL objects
     void init();
+    void cleanup();
+
+    // These will be set when the vertices are loaded
+    bool initialized;
     unsigned int vao, vbo, ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
@@ -33,20 +57,14 @@ struct BoundingBox
     glm::vec3 max;
 
     BoundingBox() : min(1.0), max(0.0) {}
-
-    void update(glm::vec3 v)
-    {
-        bool smaller = v.x < min.x && v.y < min.y && v.z < min.z;
-        bool bigger = v.x > max.x && v.y > max.y && v.z > max.z;
-        min = smaller ? v : min;
-        max = bigger ? v : max;
-    }
+    void update(glm::vec3 v);
 };
 
 class Model
 {
 public:
     Model(std::string path);
+
     void draw(Shader& shader);
     void cleanup();
 

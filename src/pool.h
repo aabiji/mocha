@@ -6,11 +6,14 @@
 #include <queue>
 #include <vector>
 
+using Task = std::function<void()>;
+
 class ThreadPool
 {
 public:
     ThreadPool(int numThreads);
-    void dispatch(std::function<void()> task);
+
+    void dispatch(Task task);
     void terminate();
 private:
     void threadLoop();
@@ -20,5 +23,5 @@ private:
     std::condition_variable var;
 
     std::vector<std::thread> threads;
-    std::queue<std::function<void()>> tasks;
+    std::queue<Task> tasks;
 };
