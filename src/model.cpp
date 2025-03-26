@@ -1,3 +1,4 @@
+#include <limits>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <glad.h>
@@ -7,14 +8,6 @@
 
 #define toVec3(v) glm::vec3(v.x, v.y, v.z)
 #define toVec2(v) glm::vec2(v.x, v.y)
-
-void BoundingBox::update(glm::vec3 v)
-{
-    bool smaller = v.x < min.x && v.y < min.y && v.z < min.z;
-    bool bigger = v.x > max.x && v.y > max.y && v.z > max.z;
-    min = smaller ? v : min;
-    max = bigger ? v : max;
-}
 
 void Mesh::init()
 {
@@ -43,6 +36,7 @@ void Mesh::init()
     }
 
     vertices.clear(); // Won't need this anymore
+    glBindVertexArray(0);
 }
 
 void Mesh::cleanup()
@@ -61,10 +55,12 @@ Model::Model(std::string path, std::string textureBasePath)
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
 
+    boundingBoxMin = glm::vec3(std::numeric_limits<float>::max());
+    boundingBoxMax = glm::vec3(std::numeric_limits<float>::min());
+
     Assimp::Importer importer;
     int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-                aiProcess_GenBoundingBoxes;
+                aiProcess_CalcTangentSpace | aiProcess_FlipUVs;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
@@ -72,7 +68,7 @@ Model::Model(std::string path, std::string textureBasePath)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    processNode(scene, scene->mRootNode);
+    processNode(scene, scene->mRootNode, glm::mat4(1.0));
 }
 
 void Model::cleanup()
@@ -82,25 +78,36 @@ void Model::cleanup()
     }
 }
 
-void Model::processNode(const aiScene* scene, const aiNode* node)
+glm::mat4 assimpToGlmMatrix(const aiMatrix4x4& matrix)
 {
+    glm::mat4 m;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            m[j][i] = matrix[i][j];
+        }
+    }
+    return m;
+}
+
+void Model::processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransformation)
+{
+    glm::mat4 transformation = parentTransformation * assimpToGlmMatrix(node->mTransformation);
+
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-        processMesh(scene, scene->mMeshes[node->mMeshes[i]]);
+        processMesh(scene, scene->mMeshes[node->mMeshes[i]], transformation);
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        processNode(scene, node->mChildren[i]);
+        processNode(scene, node->mChildren[i], transformation);
     }
 }
 
-void Model::processMesh(const aiScene* scene, const aiMesh* data)
+void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 transform)
 {
     Mesh mesh;
     mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
+    mesh.transform = transform;
     mesh.initialized = false;
-
-    globalBox.update(toVec3(data->mAABB.mMin));
-    globalBox.update(toVec3(data->mAABB.mMax));
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
         for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
@@ -109,6 +116,9 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
     }
 
     for (unsigned int i = 0; i < data->mNumVertices; i++) {
+        glm::vec3 p = glm::vec4(toVec3(data->mVertices[i]), 1.0) * transform;
+        updateBoundingBox(p);
+
         Vertex v;
         v.position = toVec3(data->mVertices[i]);
         v.normal = data->HasNormals()
@@ -121,18 +131,27 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
             ? toVec3(data->mTangents[i])
             : glm::vec3(0, 0, 0);
         mesh.vertices.push_back(v);
+        updateBoundingBox(toVec3(data->mVertices[i]));
     }
 
     meshes.push_back(std::move(mesh));
+}
+
+void Model::updateBoundingBox(glm::vec3 v)
+{
+    for (int i = 0; i < 3; i++) {
+        boundingBoxMin[i] = std::min(boundingBoxMin[i], v[i]);
+        boundingBoxMax[i] = std::max(boundingBoxMax[i], v[i]);
+    }
 }
 
 void Model::setPosition(glm::vec3 v) { position = v; }
 
 void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
 {
-    float xScale = size.x / (globalBox.max.x - globalBox.min.x);
-    float yScale = size.y / (globalBox.max.y - globalBox.min.y);
-    float zScale = size.z / (globalBox.max.z - globalBox.min.z);
+    float xScale = size.x / (boundingBoxMax.x - boundingBoxMin.x);
+    float yScale = size.y / (boundingBoxMax.y - boundingBoxMin.y);
+    float zScale = size.z / (boundingBoxMax.z - boundingBoxMin.z);
 
     if (preserveAspectRatio) {
         float uniformScale = std::max({ xScale, yScale, zScale });
@@ -141,8 +160,8 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
         scale = glm::vec3(xScale, yScale, zScale);
     }
 
-    globalBox.min *= scale;
-    globalBox.max *= scale;
+    boundingBoxMin *= scale;
+    boundingBoxMax *= scale;
 }
 
 void Model::draw(Shader& shader)
@@ -168,7 +187,7 @@ void Model::draw(Shader& shader)
             index++;
         }
 
-        shader.setMatrix("model", transform);
+        shader.setMatrix("model", transform * mesh.transform);
         shader.setInt("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }

@@ -122,7 +122,10 @@ int main()
     std::vector<Model> models;
     std::vector<std::string> paths = {
         //"../assets/cube.obj", "../assets/fox.glb",
-        "../assets/cube.obj", "../assets/CartoonCharacters/Knight.fbx",
+        //"../assets/cube.obj", "../assets/CartoonCharacters/Knight.fbx",
+        "../assets/cube.obj", "../assets/CartoonCharacters/Mage.fbx",
+        //"../assets/cube.obj", "../assets/CartoonCharacters/Rogue.fbx",
+        //"../assets/cube.obj", "../assets/CartoonCharacters/Barbarian.fbx",
         //"../assets/cube.obj", "../assets/nathan/rp_nathan_animated_003_walking.fbx", // also don't see shit
     };
     ThreadPool pool(3);

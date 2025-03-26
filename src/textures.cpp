@@ -34,6 +34,8 @@ Texture::Texture(unsigned char color)
     pixels = new unsigned char[3]{ color, color, color };
 }
 
+// TODO: fix the double initialization -- if we'have a texture we got
+// from cache, we should just reference the id of the cached texture
 void Texture::init()
 {
     glGenTextures(1, &id);

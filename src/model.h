@@ -29,15 +29,7 @@ struct Mesh
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
     TextureMap textures;
-};
-
-struct BoundingBox
-{
-    glm::vec3 min;
-    glm::vec3 max;
-
-    BoundingBox() : min(1.0), max(0.0) {}
-    void update(glm::vec3 v);
+    glm::mat4 transform;
 };
 
 class Model
@@ -50,12 +42,16 @@ public:
     void setPosition(glm::vec3 v);
     void setSize(glm::vec3 size, bool preserveAspectRatio);
 private:
-    void processNode(const aiScene* scene, const aiNode* node);
-    void processMesh(const aiScene* scene, const aiMesh* meshData);
+    void processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransformation);
+    void processMesh(const aiScene* scene, const aiMesh* meshData, glm::mat4 transform);
+    void updateBoundingBox(glm::vec3 v);
 
     glm::vec3 scale;
     glm::vec3 position;
-    BoundingBox globalBox;
+
+    glm::vec3 boundingBoxMin;
+    glm::vec3 boundingBoxMax;
+
     std::vector<Mesh> meshes;
     TextureLoader textureLoader;
 };
