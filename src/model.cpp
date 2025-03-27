@@ -182,13 +182,13 @@ void Model::draw(Shader& shader)
         int index = 0;
         for (auto& [sampler, texture] : mesh.textures) {
             glActiveTexture(GL_TEXTURE0 + index);
-            shader.setInt(("material." + sampler).c_str(), index);
+            shader.set<int>(("material." + sampler).c_str(), index);
             glBindTexture(GL_TEXTURE_2D, texture.id);
             index++;
         }
 
-        shader.setMatrix("model", transform * mesh.transform);
-        shader.setInt("hasNormalMap", mesh.textures.count("normal") > 0);
+        shader.set<glm::mat4>("model", transform * mesh.transform);
+        shader.set<int>("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
 

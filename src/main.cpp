@@ -20,27 +20,20 @@
 /*
 Can get nice models from here: https://clara.io/
 
-Each aiNode also has its own transform, so we should apply that transform
-matrix when drawing the meshes.
-
-Can we improve the lighting so that the ground is brighter and shinier?
-We should also refactor our vertex and fragment shaders.
-
-Also, for some of the models we don't see anything. Why?
-
-Can we use uniform buffer objects to pass structs into the vertex and fragment shaders
-in a more convenient and performant way (not have to redefine the same struct twice, etc)?
-
-So how does skeletal animation work?
-
-So how does batch rendering work?
+ - Implement Uniform Buffer Objects.
+- Can we improve the lighting so that the ground is brighter and shinier?
+ - Also, for some of the models we don't see anything. Why?
+- Refactor the codebase then start researching skeletal animation.
 */
 
 struct Light
 {
     glm::vec3 color;
     glm::vec3 position;
-    Light(glm::vec3 p, glm::vec3 c) : color(c), position(p) {}
+    // Attenuation variables
+    float constant;
+    float linear;
+    float quadratic;
 };
 
 enum LogType { DEBUG = 32, WARN = 33, ERROR = 31 };
@@ -155,15 +148,24 @@ int main()
     std::string fpsCounter = "";
     glm::vec3 bg = normalizeRGB(70, 70, 70);
     Camera camera(glm::vec3(0.0, 0.0, 0.0), 4);
-    std::vector<Light> lights;
-    // back
-    lights.push_back(Light(glm::vec3(0.0, 1.0, -3.0), normalizeRGB(180, 180, 180)));
-    // front
-    lights.push_back(Light(glm::vec3(0.0, 1.0,  3.0), normalizeRGB(200, 200, 200)));
-    // left
-    lights.push_back(Light(glm::vec3(-3.0, 1.0, 0.0), normalizeRGB(212, 212, 212)));
-    // right
-    lights.push_back(Light(glm::vec3(5.0, 1.0, 0.0), normalizeRGB(212, 212, 212)));
+
+    glm::vec3 positions[] = {
+        glm::vec3(0.0, 1.0, -3.0), glm::vec3(0.0, 1.0, 3.0),
+        glm::vec3(-3.0, 1.0, 0.0), glm::vec3(5.0, 1.0, 0.0)
+    };
+    glm::vec3 colors[] = {
+        normalizeRGB(180, 180, 180), normalizeRGB(200, 200, 200),
+        normalizeRGB(212, 212, 212), normalizeRGB(212, 212, 212)
+    };
+    Light lights[4];
+    for (int i = 0; i < 4; i++) {
+        lights[i] = { 
+            .color = colors[i], .position = positions[i],
+            .constant = 1.0, .linear = 0.08, .quadratic = 0.032
+        };
+    }
+    std::cout << sizeof(lights) << "\n";
+    shader.createBuffer(1, sizeof(lights));
 
     while (running) {
         unsigned int startMs = SDL_GetTicks();
@@ -201,18 +203,9 @@ int main()
 
         shader.use();
 
-        shader.setMatrix("view", camera.getView());
-        shader.setMatrix("projection", camera.getProjection(width, height));
-        shader.setVec3("viewPos", camera.getPosition());
-
-        for (size_t i = 0; i < lights.size(); i++) {
-            std::string prefix = std::format("lightSources[{}].", i);
-            shader.setVec3((prefix + "position").c_str(), lights[i].position);
-            shader.setVec3((prefix + "color").c_str(), lights[i].color);
-            shader.setFloat((prefix + "constant").c_str(), 1.0);
-            shader.setFloat((prefix + "linear").c_str(), 0.08);
-            shader.setFloat((prefix + "quadratic").c_str(), 0.032);
-        }
+        shader.set<glm::mat4>("view", camera.getView());
+        shader.set<glm::mat4>("projection", camera.getProjection(width, height));
+        shader.set<glm::vec3>("viewPosition", camera.getPosition());
 
         for (Model& m : models)
             m.draw(shader);

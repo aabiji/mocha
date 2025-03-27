@@ -5,18 +5,26 @@
 class Shader
 {
 public:
-    void use();
-    void assemble();
-    void cleanup();
+    void use(); // Set the shader program as the curent one
+    void assemble(); // Link all the separate shader programs into one
+    void cleanup(); // Delete this shader program
+
+    // Load a type (GL_FRAGMENT_SHADER, GL_VERTEX_SHADER, etc)
+    // of shader and link it to the shader program 
     void load(int type, const char *path);
 
-    void setInt(const char* name, int value);
-    void setFloat(const char* name, float value);
-    void setMatrix(const char* name, glm::mat4 value);
-    void setVec3(const char* name, glm::vec3 value);
-    void setVec4(const char* name, glm::vec4 value);
+    // Set a uniform value
+    template <typename T> void set(const char* name, T value);
+
+    // Create a uniform buffer object bound to a
+    // specific binding port and return its id
+    int createBuffer(int port, int dataSize);
+
+    // Update the data in the uniform buffer object
+    void updateBuffer(int id, int dataSize, void* data);
 
 private:
+    // Ids of the different shaders
     int vertexShader = -1;
     int fragmentShader = -1;
     int geometryShader = -1;
