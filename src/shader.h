@@ -10,7 +10,7 @@ public:
     void cleanup(); // Delete this shader program
 
     // Load a type (GL_FRAGMENT_SHADER, GL_VERTEX_SHADER, etc)
-    // of shader and link it to the shader program 
+    // of shader and link it to the shader program
     void load(int type, const char *path);
 
     // Set a uniform value
@@ -18,10 +18,10 @@ public:
 
     // Create a uniform buffer object bound to a
     // specific binding port and return its id
-    int createBuffer(int port, int dataSize);
+    unsigned int createBuffer(int port, int dataSize);
 
     // Update the data in the uniform buffer object
-    void updateBuffer(int id, int dataSize, void* data);
+    void updateBuffer(unsigned int id, int dataSize, void* data);
 
 private:
     // Ids of the different shaders

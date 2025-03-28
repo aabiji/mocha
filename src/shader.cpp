@@ -13,7 +13,7 @@ std::string readFile(std::string path)
 {
     std::ifstream file(path);
     if (!file.good())
-        return "";
+        throw std::format("Couldn't read {}", path);
 
     std::string contents = "";
     std::string line = "";
@@ -26,11 +26,8 @@ std::string readFile(std::string path)
 std::string preprocess(std::string path, std::string& basePath)
 {
     std::string source = readFile(path);
-    if (source.empty())
-        throw std::format("ERROR: Failed to read {}", path);
-
-    size_t start = 0;
     std::string pattern = "#include";
+    size_t start = 0;
 
     // Find each occurence of the #include directive
     while (((start = source.find(pattern, start)) != std::string::npos)) {
@@ -52,31 +49,11 @@ void Shader::cleanup() { glDeleteProgram(program); }
 
 void Shader::use() { glUseProgram(program); }
 
-#include <vector>
-std::vector<std::string> split(std::string& s, const std::string& delimiter) {
-    std::vector<std::string> tokens;
-    size_t pos = 0;
-    std::string token;
-    while ((pos = s.find(delimiter)) != std::string::npos) {
-        token = s.substr(0, pos);
-        tokens.push_back(token);
-        s.erase(0, pos + delimiter.length());
-    }
-    tokens.push_back(s);
-    return tokens;
-}
-
-#include <iostream>
 void Shader::load(int type, const char* path)
 {
     std::string base = std::filesystem::path(path).parent_path() / "";
     std::string source = preprocess(path, base);
     const char *c_str = source.c_str();
-
-    auto lines = split(source, "\n");
-    for (size_t i = 0; i < lines.size(); i++) {
-        std::cout << (i + 1) << " | " << lines[i] << "\n";
-    }
 
     int shader = glCreateShader(type);
     glShaderSource(shader, 1, &c_str, nullptr);
@@ -87,7 +64,7 @@ void Shader::load(int type, const char* path)
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
-        throw std::format("ERROR ({}): {}", path, log);
+        throw std::format("SHADER ERROR ({}): {}", path, log);
     }
 
     if (type == GL_VERTEX_SHADER)
@@ -144,9 +121,7 @@ void Shader::set(const char* name, T value)
         glUniform1i(address, value);
 }
 
-// TODO: have yet to test this -- trying to set the lights in the uniform buffer...
-// Got sidetracked trying to #include "shared.glsl"
-int Shader::createBuffer(int port, int dataSize)
+unsigned int Shader::createBuffer(int port, int dataSize)
 {
     unsigned int id;
     glGenBuffers(1, &id);
@@ -157,7 +132,7 @@ int Shader::createBuffer(int port, int dataSize)
     return id;
 }
 
-void Shader::updateBuffer(int id, int dataSize, void* data)
+void Shader::updateBuffer(unsigned int id, int dataSize, void* data)
 {
     glBindBuffer(GL_UNIFORM_BUFFER, id);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, dataSize, data);

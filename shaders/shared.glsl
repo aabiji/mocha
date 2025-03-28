@@ -2,7 +2,7 @@
 struct Light
 {
     vec3 color;
-    vec3 position;
+    vec3 position; // In world space
 
     // Attenuation variables
     float constant;

@@ -8,11 +8,11 @@ layout (location = 3) in vec2 coord;
 
 out FragmentInfo
 {
-    vec3 vertexNormal;
     vec3 viewPos;
     vec3 fragmentPos;
-    vec3 lightPos[NUM_LIGHTS];
     vec2 textureCoord;
+    vec3 vertexNormal;
+    vec3 lightPos[NUM_LIGHTS]; // Light positions in tangent space
 } fragOut;
 
 uniform mat4 model;

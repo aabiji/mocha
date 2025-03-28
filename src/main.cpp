@@ -20,16 +20,17 @@
 /*
 Can get nice models from here: https://clara.io/
 
- - Implement Uniform Buffer Objects.
+ - Ror some of the models we don't see anything. Why?
+     - Debug why the white cube is actually black
 - Can we improve the lighting so that the ground is brighter and shinier?
- - Also, for some of the models we don't see anything. Why?
 - Refactor the codebase then start researching skeletal animation.
 */
 
 struct Light
 {
-    glm::vec3 color;
-    glm::vec3 position;
+    // Vectors in the std140 format need to be multiples of 4
+    alignas(16) glm::vec3 color;
+    alignas(16) glm::vec3 position;
     // Attenuation variables
     float constant;
     float linear;
@@ -49,16 +50,21 @@ void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)
 {
-    (void)source;
     (void)type;
     (void)id;
     (void)length;
     (void)param;
 
+    std::string sources[] = {
+        "opengl", "window system", "shader",
+        "third party", "this application", "other source"
+    };
+    std::string sourceStr = sources[source - GL_DEBUG_SOURCE_API];
+
     LogType t = severity == GL_DEBUG_SEVERITY_HIGH
         ? ERROR
         : severity == GL_DEBUG_SEVERITY_MEDIUM ? WARN : DEBUG;
-    log(t, message);
+    log(t, std::format("From {} | {}", sourceStr, message));
 }
 
 int main()
@@ -115,8 +121,8 @@ int main()
     std::vector<Model> models;
     std::vector<std::string> paths = {
         //"../assets/cube.obj", "../assets/fox.glb",
-        //"../assets/cube.obj", "../assets/CartoonCharacters/Knight.fbx",
-        "../assets/cube.obj", "../assets/CartoonCharacters/Mage.fbx",
+        "../assets/cube.glb"//, "../assets/CartoonCharacters/Knight.fbx",
+        //"../assets/cube.obj", "../assets/CartoonCharacters/Mage.fbx",
         //"../assets/cube.obj", "../assets/CartoonCharacters/Rogue.fbx",
         //"../assets/cube.obj", "../assets/CartoonCharacters/Barbarian.fbx",
         //"../assets/cube.obj", "../assets/nathan/rp_nathan_animated_003_walking.fbx", // also don't see shit
@@ -147,7 +153,7 @@ int main()
     bool running = true;
     std::string fpsCounter = "";
     glm::vec3 bg = normalizeRGB(70, 70, 70);
-    Camera camera(glm::vec3(0.0, 0.0, 0.0), 4);
+    Camera camera(glm::vec3(0.0, 0.0, 0.0), 3);
 
     glm::vec3 positions[] = {
         glm::vec3(0.0, 1.0, -3.0), glm::vec3(0.0, 1.0, 3.0),
@@ -159,13 +165,13 @@ int main()
     };
     Light lights[4];
     for (int i = 0; i < 4; i++) {
-        lights[i] = { 
+        lights[i] = {
             .color = colors[i], .position = positions[i],
             .constant = 1.0, .linear = 0.08, .quadratic = 0.032
         };
     }
-    std::cout << sizeof(lights) << "\n";
-    shader.createBuffer(1, sizeof(lights));
+    unsigned int lightsBuffer = shader.createBuffer(1, sizeof(lights));
+    shader.updateBuffer(lightsBuffer, sizeof(lights), &lights);
 
     while (running) {
         unsigned int startMs = SDL_GetTicks();

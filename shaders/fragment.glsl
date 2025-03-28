@@ -1,18 +1,7 @@
 #version 460 core
 #include "shared.glsl"
 
-in FragmentInfo
-{
-    vec3 vertexNormal;
-    vec3 viewPos;
-    vec3 fragmentPos;
-    vec3 lightPos[NUM_LIGHTS];
-    vec2 textureCoord;
-} fragOut;
-
-out vec4 color;
-
-uniform Maps
+uniform struct Maps
 {
     sampler2D ambient;
     sampler2D diffuse;
@@ -20,9 +9,18 @@ uniform Maps
     sampler2D emission;
     sampler2D normal;
 } material;
-
 uniform bool hasNormalMap;
 
+in FragmentInfo
+{
+    vec3 viewPos;
+    vec3 fragmentPos;
+    vec2 textureCoord;
+    vec3 vertexNormal;
+    vec3 lightPos[NUM_LIGHTS]; // Light positions in tangent space
+} fragIn;
+
+out vec4 color;
 
 // Calculate phong lighting (ambiant, diffuse,
 // specular, emissive) given a light source
@@ -30,20 +28,20 @@ vec3 calculateLighting(Light light, vec3 lightPosition)
 {
     // Sample the normal. Make it go from a
     // range of 0 to 1 to a range of -1 to 1
-    vec3 normal = texture(material.normal, fragOut.textureCoord).rgb;
+    vec3 normal = texture(material.normal, fragIn.textureCoord).rgb;
     normal = normalize(normal * 2.0 - 1.0);
-    if (!hasNormalMap) normal = fragOut.vertexNormal;
+    if (!hasNormalMap) normal = fragIn.vertexNormal;
 
-    vec3 lightDirection = normalize(vec3(lightPosition) - fragOut.fragmentPos);
-    vec3 viewDirection = normalize(fragOut.viewPos - fragOut.fragmentPos);
+    vec3 lightDirection = normalize(vec3(lightPosition) - fragIn.fragmentPos);
+    vec3 viewDirection = normalize(fragIn.viewPos - fragIn.fragmentPos);
     vec3 reflectDirection = reflect(-lightDirection, normal);
     vec3 halfwayDirection = normalize(lightDirection + viewDirection);
 
-    vec3 ambientColor = texture(material.ambient, fragOut.textureCoord).rgb;
-    vec3 diffuseColor = texture(material.diffuse, fragOut.textureCoord).rgb;
-    vec3 specularColor = texture(material.specular, fragOut.textureCoord).rgb;
+    vec3 ambientColor = texture(material.ambient, fragIn.textureCoord).rgb;
+    vec3 diffuseColor = texture(material.diffuse, fragIn.textureCoord).rgb;
+    vec3 specularColor = texture(material.specular, fragIn.textureCoord).rgb;
 
-    float distance = length(vec3(lightPosition) - fragOut.fragmentPos);
+    float distance = length(vec3(lightPosition) - fragIn.fragmentPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
     vec3 ambient = ambientColor * light.color;
     ambient *= attenuation;
@@ -56,7 +54,7 @@ vec3 calculateLighting(Light light, vec3 lightPosition)
     vec3 specular = spec * specularColor * light.color;
     specular *= attenuation;
 
-    vec3 emissive = texture(material.emission, fragOut.textureCoord).rgb;
+    vec3 emissive = texture(material.emission, fragIn.textureCoord).rgb;
     emissive *= attenuation;
 
     return ambient + diffuse + specular + emissive;
@@ -65,8 +63,8 @@ vec3 calculateLighting(Light light, vec3 lightPosition)
 void main()
 {
     vec3 result = vec3(0.0, 0.0, 0.0);
-    for (int i = 0; i < lights.length(); i++) {
-        result += calculateLighting(lights[i], fragOut.lightPos[i]);
+    for (int i = 0; i < NUM_LIGHTS; i++) {
+        result += calculateLighting(lights[i], fragIn.lightPos[i]);
     }
     color = vec4(result, 1.0);
 }
