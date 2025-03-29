@@ -9,6 +9,60 @@
 #define toVec3(v) glm::vec3(v.x, v.y, v.z)
 #define toVec2(v) glm::vec2(v.x, v.y)
 
+/*
+Notes from here:
+https://lisyarus.github.io/blog/posts/gltf-animation.html
+
+affline transformation matrix:
+[ a11, a21, a31, t1 ]
+[ a21, a22, a32, t2 ]
+[ a31, a32, a33, t3 ]
+[   0,   0,   0,  0 ]
+Where the inner 3x3 matrix is rotation, scaling, shearing and t is translation
+If we just add the bottom row when doing the math, we actually get away
+with having a 3x4 matrix
+
+Each vertex can be connected to at most 4 bones
+Each bone has a specific weight on the vertex. So
+when passing data into the vertex shader, we'd need to specify
+    `vec4 boneIds, boneWeights;`
+We'd also need to specify a list of global bone
+transforms that's indexed with the bone id
+
+we should store the global bone transforms in a *shader storage buffer object*
+not a uniform buffer object
+
+globalBoneTransform(bone) =
+    globalBoneTransform(parent) * localBoneTransform(bone)
+
+when computing the global bone transforms, it's efficient
+to compute parent's global bone transform (of course we
+can use DFS to make sure that parents are evaluated before their children)
+
+invertToParentCS(node) = inverseBindMatrix(parent) * inverseBindMatrix(node)^-1
+
+the inverse bind matrix maps a vertex from world space
+into the bone's local coordinate system the bone has a
+local coordinate system because it makes the math more convenient
+before that we'd need to transform the vertex into bind pose,
+but most models are already in bind pose, so that step is skipped
+
+so really, the final transformation looks like so:
+vertexInModelSpace =
+    globalBoneTransform * inverseBindMatrix * vertexInModelSpace
+
+1. Convert it to the model bind pose (if not already in bind pose)
+2. vertexInModelSpace =
+    globalBoneTransform * inverseBindMatrix * vertexInModelSpace
+3. Repeat for parent bone
+*/
+
+// TODO:
+// - the cube is black because it has no textures -- so it must have a color
+// - start parsing the data needed for animations
+// - use a shader storage object instead of a uniform buffer object
+// - perform animation in vertex shader???
+
 void Mesh::init()
 {
     glGenVertexArrays(1, &vao);
