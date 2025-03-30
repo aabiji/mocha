@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "model.h"
+#include "assimp/mesh.h"
 
 #define toVec3(v) glm::vec3(v.x, v.y, v.z)
 #define toVec2(v) glm::vec2(v.x, v.y)
@@ -58,10 +59,20 @@ vertexInModelSpace =
 */
 
 // TODO:
-// - the cube is black because it has no textures -- so it must have a color
 // - start parsing the data needed for animations
 // - use a shader storage object instead of a uniform buffer object
 // - perform animation in vertex shader???
+
+glm::mat4 assimpToGlmMatrix(const aiMatrix4x4& matrix)
+{
+    glm::mat4 m;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            m[j][i] = matrix[i][j];
+        }
+    }
+    return m;
+}
 
 void Mesh::init()
 {
@@ -106,6 +117,7 @@ void Mesh::cleanup()
 Model::Model(std::string path, std::string textureBasePath)
     : textureLoader(textureBasePath)
 {
+    boneCount = 0;
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
 
@@ -132,17 +144,6 @@ void Model::cleanup()
     }
 }
 
-glm::mat4 assimpToGlmMatrix(const aiMatrix4x4& matrix)
-{
-    glm::mat4 m;
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            m[j][i] = matrix[i][j];
-        }
-    }
-    return m;
-}
-
 void Model::processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransformation)
 {
     glm::mat4 transformation = parentTransformation * assimpToGlmMatrix(node->mTransformation);
@@ -153,6 +154,42 @@ void Model::processNode(const aiScene* scene, const aiNode* node, glm::mat4 pare
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
         processNode(scene, node->mChildren[i], transformation);
+    }
+}
+
+void Model::addBoneToVertex(Vertex& v, int boneId, float weight)
+{
+    // Each bone has at most 4 bones that can influence it
+    for (int i = 0; i < 4; i++) {
+        if (v.boneIds[i] < 0) {
+            v.boneIds[i] = boneId;
+            v.boneWeights[i] = weight;
+            break;
+        }
+    }
+}
+
+void Model::getBoneWeights(Mesh& mesh, aiBone** bones, int numBones)
+{
+    for (int i = 0; i < numBones; i++) {
+        int boneId = -1;
+        std::string name = bones[i]->mName.C_Str();
+        if (boneMap.count(name))
+            boneId = boneMap[name].id;
+        else {
+            Bone bone;
+            bone.id = boneCount++;
+            bone.inverseBindMatrix = assimpToGlmMatrix(bones[i]->mOffsetMatrix);
+            boneMap[name] = bone;
+            boneId = bone.id;
+        }
+        assert(boneId != -1);
+
+        for (unsigned int j = 0; j < bones[i]->mNumWeights; j++) {
+            float weight = bones[i]->mWeights[j].mWeight;
+            int vertexIndex = bones[i]->mWeights[j].mVertexId;
+            addBoneToVertex(mesh.vertices[vertexIndex], boneId, weight);
+        }
     }
 }
 
@@ -178,20 +215,28 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 tran
         if (data->HasNormals())
             v.normal = toVec3(data->mNormals[i]);
 
-        // The tangent is derived from the texture coordinate, so if
-        // we don't have a texture coordinate, we can't have a tangent.
-        // If the tangent is made to default to (0, 0, 0), the TBN matrix
-        // will be singular, which would fuck up the lighting calculations.
-        // So the tangent is better off as randomly initialized (not set at all)
+        // Mark each bone as unset
+        memset(v.boneIds, -1, 4 * sizeof(int));
+        memset(v.boneWeights, 0, 4 * sizeof(float));
+
+        // The tangent is derived from the texture coordinate, so if there's
+        // no texture coordinate, there can't be a tangent. If the tangent is
+        // made to default to (0, 0, 0), the TBN matrix will be singular, which
+        // would fuck up the lighting calculations. So, the tangent is better
+        // off as randomly initialized.
         if (data->mTextureCoords[0]) {
             v.coord = toVec2(data->mTextureCoords[0][i]);
             v.tangent = toVec3(data->mTangents[i]);
+        } else {
+            v.coord = glm::vec2(0, 0);
+            v.tangent = glm::vec3(rand(), rand(), rand());
         }
 
         mesh.vertices.push_back(v);
         updateBoundingBox(toVec3(data->mVertices[i]));
     }
 
+    getBoneWeights(mesh, data->mBones, data->mNumBones);
     meshes.push_back(std::move(mesh));
 }
 
