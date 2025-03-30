@@ -3,11 +3,7 @@ struct Light
 {
     vec3 color;
     vec3 position; // In world space
-
-    // Attenuation variables
-    float constant;
-    float linear;
-    float quadratic;
+    float c, l, q; // Constant, linear, quadratic (attenuation value)
 };
 
 const int NUM_LIGHTS = 4;

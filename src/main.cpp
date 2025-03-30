@@ -17,24 +17,13 @@
 
 #define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
 
-/*
-Can get nice models from here: https://clara.io/
-
- - Ror some of the models we don't see anything. Why?
-     - Debug why the white cube is actually black
-- Can we improve the lighting so that the ground is brighter and shinier?
-- Refactor the codebase then start researching skeletal animation.
-*/
-
 struct Light
 {
     // Vectors in the std140 format need to be multiples of 4
     alignas(16) glm::vec3 color;
     alignas(16) glm::vec3 position;
-    // Attenuation variables
-    float constant;
-    float linear;
-    float quadratic;
+    // Constant, linear, quadratic (attenuation value) (see shaders/shared.glsl)
+    float c, l, q;
 };
 
 enum LogType { DEBUG = 32, WARN = 33, ERROR = 31 };
@@ -120,19 +109,15 @@ int main()
 
     std::vector<Model> models;
     std::vector<std::string> paths = {
-        //"../assets/cube.obj", "../assets/fox.glb",
-        "../assets/cube.glb"//, "../assets/CartoonCharacters/Knight.fbx",
-        //"../assets/cube.obj", "../assets/CartoonCharacters/Mage.fbx",
-        //"../assets/cube.obj", "../assets/CartoonCharacters/Rogue.fbx",
-        //"../assets/cube.obj", "../assets/CartoonCharacters/Barbarian.fbx",
-        //"../assets/cube.obj", "../assets/nathan/rp_nathan_animated_003_walking.fbx", // also don't see shit
+        "../assets/cube.glb",
+        "../assets/Skeleton_Mage.glb"
     };
     ThreadPool pool(3);
     for (std::string path : paths) {
         pool.dispatch([&, path] {
             try {
-                Model m(path, "../assets/CartoonCharacters/");
-                if (path == "../assets/cube.obj") {
+                Model m(path, "../assets/");
+                if (path == "../assets/cube.glb") {
                     // Scale and position the floor
                     m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
                     m.setPosition(glm::vec3(0.0, -0.5, 0.0));
@@ -167,7 +152,7 @@ int main()
     for (int i = 0; i < 4; i++) {
         lights[i] = {
             .color = colors[i], .position = positions[i],
-            .constant = 1.0, .linear = 0.08, .quadratic = 0.032
+            .c = 1.0, .l = 0.08, .q = 0.032
         };
     }
     unsigned int lightsBuffer = shader.createBuffer(1, sizeof(lights));

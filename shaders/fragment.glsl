@@ -41,23 +41,19 @@ vec3 calculateLighting(Light light, vec3 lightPosition)
     vec3 diffuseColor = texture(material.diffuse, fragIn.textureCoord).rgb;
     vec3 specularColor = texture(material.specular, fragIn.textureCoord).rgb;
 
-    float distance = length(vec3(lightPosition) - fragIn.fragmentPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
+    float d = length(lightPosition - fragIn.fragmentPos);
+    float attenuation = 1.0 / (light.c + light.l * d + light.q * (d * d));
+
     vec3 ambient = ambientColor * light.color;
-    ambient *= attenuation;
+    vec3 emissive = texture(material.emission, fragIn.textureCoord).rgb;
 
     float diff = max(dot(lightDirection, normal), 0.0);
     vec3 diffuse = diff * diffuseColor * light.color;
-    diffuse *= attenuation;
 
     float spec = pow(max(dot(normal, halfwayDirection), 0.0), 128);
     vec3 specular = spec * specularColor * light.color;
-    specular *= attenuation;
 
-    vec3 emissive = texture(material.emission, fragIn.textureCoord).rgb;
-    emissive *= attenuation;
-
-    return ambient + diffuse + specular + emissive;
+    return attenuation * (ambient + diffuse + specular + emissive);
 }
 
 void main()

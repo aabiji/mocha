@@ -113,7 +113,7 @@ Model::Model(std::string path, std::string textureBasePath)
     boundingBoxMax = glm::vec3(std::numeric_limits<float>::min());
 
     Assimp::Importer importer;
-    int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
+    unsigned int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
                 aiProcess_CalcTangentSpace | aiProcess_FlipUVs;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
@@ -175,15 +175,19 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 tran
 
         Vertex v;
         v.position = toVec3(data->mVertices[i]);
-        v.normal = data->HasNormals()
-            ? toVec3(data->mNormals[i])
-            : glm::vec3(0, 0, 0);
-        v.coord = data->mTextureCoords[0]
-            ? toVec2(data->mTextureCoords[0][i])
-            : glm::vec2(0, 0);
-        v.tangent = data->HasTangentsAndBitangents()
-            ? toVec3(data->mTangents[i])
-            : glm::vec3(0, 0, 0);
+        if (data->HasNormals())
+            v.normal = toVec3(data->mNormals[i]);
+
+        // The tangent is derived from the texture coordinate, so if
+        // we don't have a texture coordinate, we can't have a tangent.
+        // If the tangent is made to default to (0, 0, 0), the TBN matrix
+        // will be singular, which would fuck up the lighting calculations.
+        // So the tangent is better off as randomly initialized (not set at all)
+        if (data->mTextureCoords[0]) {
+            v.coord = toVec2(data->mTextureCoords[0][i]);
+            v.tangent = toVec3(data->mTangents[i]);
+        }
+
         mesh.vertices.push_back(v);
         updateBoundingBox(toVec3(data->mVertices[i]));
     }

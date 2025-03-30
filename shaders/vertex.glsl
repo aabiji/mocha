@@ -23,7 +23,7 @@ uniform vec3 viewPosition;
 void main()
 {
     // Scale the vertex normal and tangent properly
-    mat3 normalMatrix = transpose(inverse(mat3(model)));
+    mat3 normalMatrix = mat3(transpose(inverse(model)));
     vec3 T = normalize(normalMatrix * tangent);
     vec3 N = normalize(normalMatrix * normal);
     // Make sure the tangent is perpendicular to the normal
@@ -32,7 +32,7 @@ void main()
     vec3 B = cross(N, T);
     // Now we have the tangent-bitangent-normal matrix
     mat3 TBN = mat3(T, B, N);
- 
+
     // Map the vectors from world space to tangent space so that
     // all the lighting calculations can be done in tangent space
     fragOut.vertexNormal = N;
