@@ -1,10 +1,12 @@
 #version 460 core
 #include "shared.glsl"
 
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 normal;
-layout (location = 2) in vec3 tangent;
+layout (location = 0) in vec3 _position;
+layout (location = 1) in vec3 _normal;
+layout (location = 2) in vec3 _tangent;
 layout (location = 3) in vec2 coord;
+layout (location = 4) in ivec4 boneIds;
+layout (location = 5) in vec4 boneWeights;
 
 out FragmentInfo
 {
@@ -15,13 +17,24 @@ out FragmentInfo
     vec3 lightPos[NUM_LIGHTS]; // Light positions in tangent space
 } fragOut;
 
+// TODO: these should be in some sort of buffer, instead of being uniforms
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 uniform vec3 viewPosition;
+uniform mat4 boneTransforms[41]; // TODO: size???
 
 void main()
 {
+    // Transform the vertex with the given bone transformations
+    mat4 boneTransform = mat4(1.0);
+    for (int i = 0; i < 4; i++) {
+        boneTransform += boneTransforms[boneIds[i]] * boneWeights[i];
+    }
+    vec3 position = vec3(boneTransform * vec4(_position, 1.0));
+    vec3 normal   = vec3(boneTransform * vec4(_normal, 0.0));
+    vec3 tangent  = vec3(boneTransform * vec4(_tangent, 0.0));
+
     // Scale the vertex normal and tangent properly
     mat3 normalMatrix = mat3(transpose(inverse(model)));
     vec3 T = normalize(normalMatrix * tangent);

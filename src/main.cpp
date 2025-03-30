@@ -1,15 +1,17 @@
 #include <iostream>
 #include <format>
 
+#define IMGUI_USER_CONFIG "imgui_config.h"
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_opengl3.h>
+
 #define GLAD_GL_IMPLEMENTATION 1
 #include <glad.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <SDL3/SDL.h>
 
-#define IMGUI_USER_CONFIG "imgui_config.h"
-#include "imgui.h"
-#include "backends/imgui_impl_sdl3.h"
-#include "backends/imgui_impl_opengl3.h"
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <SDL3/SDL.h>
 
 #include "camera.h"
 #include "model.h"
@@ -109,7 +111,7 @@ int main()
 
     std::vector<Model> models;
     std::vector<std::string> paths = {
-        "../assets/cube.glb",
+        //"../assets/cube.glb",
         "../assets/Skeleton_Mage.glb"
     };
     ThreadPool pool(3);
@@ -199,7 +201,7 @@ int main()
         shader.set<glm::vec3>("viewPosition", camera.getPosition());
 
         for (Model& m : models)
-            m.draw(shader);
+            m.draw(shader, double(SDL_GetTicks()) / 1000.0);
 
         // Draw the UI
         ImGui_ImplOpenGL3_NewFrame();
