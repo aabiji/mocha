@@ -19,6 +19,7 @@
 
 #define normalizeRGB(r, g, b) glm::vec3(r / 255.0, g / 255.0, b / 255.0)
 
+// TODO: make the scene more bright -- no more somber vibes!
 struct Light
 {
     // Vectors in the std140 format need to be multiples of 4
@@ -111,7 +112,7 @@ int main()
 
     std::vector<Model> models;
     std::vector<std::string> paths = {
-        //"../assets/cube.glb",
+        "../assets/cube.glb",
         "../assets/Skeleton_Mage.glb"
     };
     ThreadPool pool(3);
@@ -119,6 +120,7 @@ int main()
         pool.dispatch([&, path] {
             try {
                 Model m(path, "../assets/");
+                // TODO: i think we should be doing this each frame because of animations??
                 if (path == "../assets/cube.glb") {
                     // Scale and position the floor
                     m.setSize(glm::vec3(10.0, 0.5, 10.0), false);

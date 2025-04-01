@@ -40,6 +40,7 @@ struct Mesh
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
     TextureMap textures;
+    glm::mat4 transform;
 };
 
 class Model
@@ -52,14 +53,14 @@ public:
     void setPosition(glm::vec3 v);
     void setSize(glm::vec3 size, bool preserveAspectRatio);
 private:
-    void processNode(const aiScene* scene, const aiNode* node);
-    void processMesh(const aiScene* scene, const aiMesh* meshData);
+    void processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransform);
+    void processMesh(const aiScene* scene, const aiMesh* meshData, glm::mat4 transform);
     void updateBoundingBox(glm::vec3 v);
 
     void getBoneWeights(Mesh& mesh, aiBone** bones, int numBones);
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
-    void calculateBoneTransform(aiNode* node, double animationTime, glm::mat4 parentTransform);
+    void calculateBoneTransform(aiNode* node, double time, glm::mat4 parentTransform, int& meshIndex);
     aiNodeAnim* findNodeAnimation(aiString name);
 
     glm::vec3 scale;

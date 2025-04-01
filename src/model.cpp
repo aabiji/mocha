@@ -1,21 +1,28 @@
+#include <cstdio>
 #include <format>
 
 #include <assimp/cimport.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/quaternion.h>
+#include <assimp/vector3.h>
 
 #include <glad.h>
 
 #include <glm/fwd.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
+// TODO: remove this
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
 #include "model.h"
 
-#define toVec3(v) glm::vec3(v.x, v.y, v.z)
-#define toVec2(v) glm::vec2(v.x, v.y)
-#define toQuat(q) glm::quat(q.w, q.x, q.y, q.z)
+#include <iostream>
+
+inline glm::vec3 toVec3(aiVector3D v) { return glm::vec3(v.x, v.y, v.z); }
+inline glm::vec2 toVec2(aiVector3D v) { return glm::vec2(v.x, v.y); }
+inline glm::quat toQuat(aiQuaternion q) { return glm::quat(q.w, q.x, q.y, q.z); }
 
 glm::mat4 assimpToGlmMatrix(const aiMatrix4x4& matrix)
 {
@@ -93,7 +100,7 @@ Model::Model(std::string path, std::string textureBasePath)
         throw std::string("Invalid model file");
 
     boneCount = 0;
-    processNode(scene, scene->mRootNode);
+    processNode(scene, scene->mRootNode, glm::mat4(1.0));
 
     currentAnimation = 0;
     rootNode = scene->mRootNode;
@@ -109,14 +116,15 @@ void Model::cleanup()
     }
 }
 
-void Model::processNode(const aiScene* scene, const aiNode* node)
+void Model::processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransform)
 {
+    glm::mat4 t = assimpToGlmMatrix(node->mTransformation) * parentTransform;
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-        processMesh(scene, scene->mMeshes[node->mMeshes[i]]);
+        processMesh(scene, scene->mMeshes[node->mMeshes[i]], t);
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        processNode(scene, node->mChildren[i]);
+        processNode(scene, node->mChildren[i], t);
     }
 }
 
@@ -124,10 +132,10 @@ void Model::addBoneToVertex(Vertex& v, int boneId, float weight)
 {
     // Each bone has at most 4 bones that can influence it
     for (int i = 0; i < 4; i++) {
-        if (v.boneWeights[i] == 0.0) {
+        if (v.boneIds[i] == -1) {
             v.boneIds[i] = boneId;
             v.boneWeights[i] = weight;
-            break;
+            return;
         }
     }
 }
@@ -156,11 +164,12 @@ void Model::getBoneWeights(Mesh& mesh, aiBone** bones, int numBones)
     }
 }
 
-void Model::processMesh(const aiScene* scene, const aiMesh* data)
+void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 transform)
 {
     Mesh mesh;
-    mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
     mesh.initialized = false;
+    mesh.transform = glm::mat4(1.0);
+    mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
         for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
@@ -169,14 +178,15 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
     }
 
     for (unsigned int i = 0; i < data->mNumVertices; i++) {
+        glm::vec3 p = glm::vec4(toVec3(data->mVertices[i]), 1.0) * transform;
+        updateBoundingBox(p);
+
         Vertex v;
-        v.boneIds = glm::ivec4(0.0);
+        v.boneIds = glm::ivec4(-1.0);
         v.boneWeights = glm::vec4(0.0);
         v.position = toVec3(data->mVertices[i]);
         if (data->HasNormals())
             v.normal = toVec3(data->mNormals[i]);
-
-        updateBoundingBox(v.position); // TODO: account for node transformation
 
         // The tangent is derived from the texture coordinate, so if there's
         // no texture coordinate, there can't be a tangent. If the tangent is
@@ -192,13 +202,13 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data)
         }
 
         mesh.vertices.push_back(v);
-        updateBoundingBox(toVec3(data->mVertices[i]));
     }
 
     getBoneWeights(mesh, data->mBones, data->mNumBones);
     meshes.push_back(std::move(mesh));
 }
 
+// TODO: what if we just use the bounding box that assimp computes for us?
 void Model::updateBoundingBox(glm::vec3 v)
 {
     for (int i = 0; i < 3; i++) {
@@ -285,13 +295,15 @@ glm::vec3 interpolateVectorKeyframes(aiVectorKey* keyframes, int numKeyframes, d
     aiVectorKey b = keyframes[index + 1];
     float percentage = (time - a.mTime) / (b.mTime - a.mTime);
     assert(percentage >= 0.0 && percentage <= 1.0);
-
     // Linearly interpolate the two positions
-    glm::vec3 result = toVec3(a.mValue) * (1.0f - percentage) + toVec3(b.mValue) * percentage;
-    return glm::normalize(result);
+    // TODO: doesn't asismp have different interpolate types??
+    aiVector3D result = a.mValue + percentage * (b.mValue - a.mValue);
+    return toVec3(result);
 }
 
-void Model::calculateBoneTransform(aiNode* node, double animationTime, glm::mat4 parentTransform)
+// TODO: with the model loading, there's this one vertex that keeps stretching out of its head
+//       not sure what would cause that though
+void Model::calculateBoneTransform(aiNode* node, double time, glm::mat4 parentTransform, int& meshIndex)
 {
     aiString name = node->mName;
     std::string nameStr = std::string(name.C_Str());
@@ -301,26 +313,33 @@ void Model::calculateBoneTransform(aiNode* node, double animationTime, glm::mat4
 
     // Get the node transform by interpolating the position, scaling and rotation keyframes
     if (animation) {
-        glm::quat quaternion = interpolateRotationKeyframes(animation, animationTime);
+        glm::quat quaternion = interpolateRotationKeyframes(animation, time);
         glm::mat4 rotation = glm::mat4(quaternion);
 
-        glm::vec3 pos = interpolateVectorKeyframes(animation->mPositionKeys, animation->mNumPositionKeys, animationTime);
+        glm::vec3 pos = interpolateVectorKeyframes(animation->mPositionKeys, animation->mNumPositionKeys, time);
         glm::mat4 translation = glm::translate(glm::mat4(1.0), pos);
 
-        glm::vec3 scale = interpolateVectorKeyframes(animation->mScalingKeys, animation->mNumScalingKeys, animationTime);
+        glm::vec3 scale = interpolateVectorKeyframes(animation->mScalingKeys, animation->mNumScalingKeys, time);
         glm::mat4 scaling = glm::scale(glm::mat4(1.0), scale);
 
         transform = translation * rotation * scaling;
     }
 
+    // If we have a bone, set its transformation matrix, else set the
+    // transform of the mesh directly (which will be used in the model matrix).
     glm::mat4 globalTransform = parentTransform * transform;
     if (boneMap.count(nameStr)) {
         Bone& bone = boneMap[nameStr];
         boneTransforms[bone.id] = globalInverseTransform * globalTransform * bone.inverseBindMatrix;
+    } else {
+        for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+            meshes[meshIndex].transform = globalTransform;
+            meshIndex++;
+        }
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        calculateBoneTransform(node->mChildren[i], animationTime, globalTransform);
+        calculateBoneTransform(node->mChildren[i], time, globalTransform, meshIndex);
     }
 }
 
@@ -336,7 +355,8 @@ void Model::draw(Shader& shader, double timeInSeconds)
         aiAnimation* animation = animations[currentAnimation];
         double tps = animation->mTicksPerSecond == 0 ? 25.0 : animation->mTicksPerSecond;
         double time = fmod(timeInSeconds * tps, animation->mDuration);
-        calculateBoneTransform(rootNode, time, glm::mat4(1.0));
+        int meshIndex = 0;
+        calculateBoneTransform(rootNode, time, glm::mat4(1.0), meshIndex);
     }
 
     for (Mesh& mesh : meshes) {
@@ -360,7 +380,7 @@ void Model::draw(Shader& shader, double timeInSeconds)
             shader.set<glm::mat4>(std::format("boneTransforms[{}]", i).c_str(), boneTransforms[i]);
         }
 
-        shader.set<glm::mat4>("model", transform);
+        shader.set<glm::mat4>("model", transform * mesh.transform);
         shader.set<int>("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }

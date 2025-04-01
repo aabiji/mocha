@@ -5,6 +5,8 @@ and that motion is mapped to a 3d animation of a human model
 that can be replayed. For example, you could map the choreography
 of dancers in kpop dance videos into 3d animations.
 
+Could extend this concept to develop a full fledged game where you earn points doing exercise
+
 Tech Stack:
 - SDL3 + Opengl: Engine responsible for the 3d model rendering and their skeletal animation.
 - Mediapipe: Get skeletal information from the human pose estimation.
