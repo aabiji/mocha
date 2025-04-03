@@ -113,7 +113,8 @@ int main()
     std::vector<Model> models;
     std::vector<std::string> paths = {
         "../assets/cube.glb",
-        "../assets/Skeleton_Mage.glb"
+        "../assets/Skeleton_Mage.glb",
+        //"../assets/Realistic man.fbx"
     };
     ThreadPool pool(3);
     for (std::string path : paths) {

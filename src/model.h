@@ -13,6 +13,7 @@
 
 struct Bone
 {
+    // Index of the bone in the bone transforms list
     int id;
     // Converts a vertex from local space to bone space
     glm::mat4 inverseBindMatrix;
@@ -74,7 +75,6 @@ private:
     int boneCount;
     std::unordered_map<std::string, Bone> boneMap;
     std::vector<glm::mat4> boneTransforms;
-    glm::mat4 globalInverseTransform;
 
     aiNode* rootNode;
     aiAnimation** animations;

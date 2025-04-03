@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <format>
 
 #include <assimp/cimport.h>
@@ -11,14 +10,16 @@
 
 #include <glm/fwd.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/type_ptr.hpp>
-// TODO: remove this
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
 
 #include "model.h"
 
-#include <iostream>
+/*
+Changes:
+- Refactor -- store the info we need in our own data structures
+- Refactor -- Model is doing too much -- maybe split the animation into a different class
+- TODO: when finally works, add an animation selector gui
+- TODO: the lighting needs help
+*/
 
 inline glm::vec3 toVec3(aiVector3D v) { return glm::vec3(v.x, v.y, v.z); }
 inline glm::vec2 toVec2(aiVector3D v) { return glm::vec2(v.x, v.y); }
@@ -105,7 +106,6 @@ Model::Model(std::string path, std::string textureBasePath)
     currentAnimation = 0;
     rootNode = scene->mRootNode;
     animations = scene->mAnimations;
-    globalInverseTransform = assimpToGlmMatrix(rootNode->mTransformation.Inverse());
     boneTransforms.resize(boneMap.size());
 }
 
@@ -132,7 +132,7 @@ void Model::addBoneToVertex(Vertex& v, int boneId, float weight)
 {
     // Each bone has at most 4 bones that can influence it
     for (int i = 0; i < 4; i++) {
-        if (v.boneIds[i] == -1) {
+        if (v.boneWeights[i] == 0.0) {
             v.boneIds[i] = boneId;
             v.boneWeights[i] = weight;
             return;
@@ -301,8 +301,6 @@ glm::vec3 interpolateVectorKeyframes(aiVectorKey* keyframes, int numKeyframes, d
     return toVec3(result);
 }
 
-// TODO: with the model loading, there's this one vertex that keeps stretching out of its head
-//       not sure what would cause that though
 void Model::calculateBoneTransform(aiNode* node, double time, glm::mat4 parentTransform, int& meshIndex)
 {
     aiString name = node->mName;
@@ -330,7 +328,7 @@ void Model::calculateBoneTransform(aiNode* node, double time, glm::mat4 parentTr
     glm::mat4 globalTransform = parentTransform * transform;
     if (boneMap.count(nameStr)) {
         Bone& bone = boneMap[nameStr];
-        boneTransforms[bone.id] = globalInverseTransform * globalTransform * bone.inverseBindMatrix;
+        boneTransforms[bone.id] = globalTransform * bone.inverseBindMatrix;
     } else {
         for (unsigned int i = 0; i < node->mNumMeshes; i++) {
             meshes[meshIndex].transform = globalTransform;
@@ -352,10 +350,10 @@ void Model::draw(Shader& shader, double timeInSeconds)
 
     // Calculate the bone transforms for the current animation
     if (animations) {
+        int meshIndex = 0;
         aiAnimation* animation = animations[currentAnimation];
         double tps = animation->mTicksPerSecond == 0 ? 25.0 : animation->mTicksPerSecond;
         double time = fmod(timeInSeconds * tps, animation->mDuration);
-        int meshIndex = 0;
         calculateBoneTransform(rootNode, time, glm::mat4(1.0), meshIndex);
     }
 
@@ -380,7 +378,8 @@ void Model::draw(Shader& shader, double timeInSeconds)
             shader.set<glm::mat4>(std::format("boneTransforms[{}]", i).c_str(), boneTransforms[i]);
         }
 
-        shader.set<glm::mat4>("model", transform * mesh.transform);
+        shader.set<glm::mat4>("model", transform);
+        shader.set<glm::mat4>("meshTransform", mesh.transform);
         shader.set<int>("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
