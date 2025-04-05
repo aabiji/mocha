@@ -19,6 +19,11 @@ Changes:
 - Refactor -- Model is doing too much -- maybe split the animation into a different class
 - TODO: when finally works, add an animation selector gui
 - TODO: the lighting needs help
+
+Refactor:
+- Keyframes -> stores the positions, rotations and scalings for 1 node's animation keyframes
+- Animation -> applies the bone transforms
+- Animator  -> Manages many animations
 */
 
 inline glm::vec3 toVec3(aiVector3D v) { return glm::vec3(v.x, v.y, v.z); }
