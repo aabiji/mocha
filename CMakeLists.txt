@@ -21,8 +21,10 @@ FetchContent_MakeAvailable(imgui)
 
 add_executable(
     app
-    src/main.cpp
+    src/animator.cpp
     src/camera.cpp
+    src/keyframes.cpp
+    src/main.cpp
     src/model.cpp
     src/pool.cpp
     src/shader.cpp

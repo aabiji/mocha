@@ -1,45 +1,18 @@
 #include <format>
 
-#include <assimp/cimport.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include <assimp/quaternion.h>
-#include <assimp/vector3.h>
 
 #include <glad.h>
 
-#include <glm/fwd.hpp>
-#include <glm/gtc/quaternion.hpp>
-
+#include "convert.h"
 #include "model.h"
 
 /*
 Changes:
-- Refactor -- store the info we need in our own data structures
-- Refactor -- Model is doing too much -- maybe split the animation into a different class
 - TODO: when finally works, add an animation selector gui
 - TODO: the lighting needs help
-
-Refactor:
-- Keyframes -> stores the positions, rotations and scalings for 1 node's animation keyframes
-- Animation -> applies the bone transforms
-- Animator  -> Manages many animations
 */
-
-inline glm::vec3 toVec3(aiVector3D v) { return glm::vec3(v.x, v.y, v.z); }
-inline glm::vec2 toVec2(aiVector3D v) { return glm::vec2(v.x, v.y); }
-inline glm::quat toQuat(aiQuaternion q) { return glm::quat(q.w, q.x, q.y, q.z); }
-
-glm::mat4 assimpToGlmMatrix(const aiMatrix4x4& matrix)
-{
-    glm::mat4 m;
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            m[j][i] = matrix[i][j];
-        }
-    }
-    return m;
-}
 
 void Mesh::init()
 {
@@ -85,7 +58,6 @@ void Mesh::cleanup()
     }
 }
 
-thread_local Assimp::Importer importer;
 
 Model::Model(std::string path, std::string textureBasePath)
     : textureLoader(textureBasePath)
@@ -96,8 +68,9 @@ Model::Model(std::string path, std::string textureBasePath)
     boundingBoxMin = glm::vec3(std::numeric_limits<float>::max());
     boundingBoxMax = glm::vec3(std::numeric_limits<float>::min());
 
+    Assimp::Importer importer;
     unsigned int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_CalcTangentSpace | aiProcess_FlipUVs;
+                aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
@@ -105,13 +78,8 @@ Model::Model(std::string path, std::string textureBasePath)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    boneCount = 0;
-    processNode(scene, scene->mRootNode, glm::mat4(1.0));
-
-    currentAnimation = 0;
-    rootNode = scene->mRootNode;
-    animations = scene->mAnimations;
-    boneTransforms.resize(boneMap.size());
+    animator.load(scene);
+    processNode(scene, scene->mRootNode);
 }
 
 void Model::cleanup()
@@ -121,15 +89,14 @@ void Model::cleanup()
     }
 }
 
-void Model::processNode(const aiScene* scene, const aiNode* node, glm::mat4 parentTransform)
+void Model::processNode(const aiScene* scene, const aiNode* node)
 {
-    glm::mat4 t = assimpToGlmMatrix(node->mTransformation) * parentTransform;
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-        processMesh(scene, scene->mMeshes[node->mMeshes[i]], t);
+        processMesh(scene, scene->mMeshes[node->mMeshes[i]]);
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        processNode(scene, node->mChildren[i], t);
+        processNode(scene, node->mChildren[i]);
     }
 }
 
@@ -145,35 +112,25 @@ void Model::addBoneToVertex(Vertex& v, int boneId, float weight)
     }
 }
 
-void Model::getBoneWeights(Mesh& mesh, aiBone** bones, int numBones)
+void Model::getBoneWeights(aiMesh* data, Mesh& mesh)
 {
-    for (int i = 0; i < numBones; i++) {
-        int boneId = -1;
-        std::string name = bones[i]->mName.C_Str();
-        if (boneMap.count(name))
-            boneId = boneMap[name].id;
-        else {
-            Bone bone;
-            bone.id = boneCount++;
-            bone.inverseBindMatrix = assimpToGlmMatrix(bones[i]->mOffsetMatrix);
-            boneMap[name] = bone;
-            boneId = bone.id;
-        }
-        assert(boneId != -1);
+    for (unsigned int i = 0; i < data->mNumBones; i++) {
+        aiBone* bone = data->mBones[i];
+        std::string name = bone->mName.C_Str();
+        int boneId = animator.getBoneId(name);
 
-        for (unsigned int j = 0; j < bones[i]->mNumWeights; j++) {
-            float weight = bones[i]->mWeights[j].mWeight;
-            int vertexIndex = bones[i]->mWeights[j].mVertexId;
+        for (unsigned int j = 0; j < bone->mNumWeights; j++) {
+            float weight = bone->mWeights[j].mWeight;
+            int vertexIndex = bone->mWeights[j].mVertexId;
             addBoneToVertex(mesh.vertices[vertexIndex], boneId, weight);
         }
     }
 }
 
-void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 transform)
+void Model::processMesh(const aiScene* scene, aiMesh* data)
 {
     Mesh mesh;
     mesh.initialized = false;
-    mesh.transform = glm::mat4(1.0);
     mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
@@ -183,9 +140,6 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 tran
     }
 
     for (unsigned int i = 0; i < data->mNumVertices; i++) {
-        glm::vec3 p = glm::vec4(toVec3(data->mVertices[i]), 1.0) * transform;
-        updateBoundingBox(p);
-
         Vertex v;
         v.boneIds = glm::ivec4(-1.0);
         v.boneWeights = glm::vec4(0.0);
@@ -209,11 +163,13 @@ void Model::processMesh(const aiScene* scene, const aiMesh* data, glm::mat4 tran
         mesh.vertices.push_back(v);
     }
 
-    getBoneWeights(mesh, data->mBones, data->mNumBones);
+    updateBoundingBox(toVec3(data->mAABB.mMin));
+    updateBoundingBox(toVec3(data->mAABB.mMax));
+    getBoneWeights(data, mesh);
+
     meshes.push_back(std::move(mesh));
 }
 
-// TODO: what if we just use the bounding box that assimp computes for us?
 void Model::updateBoundingBox(glm::vec3 v)
 {
     for (int i = 0; i < 3; i++) {
@@ -241,128 +197,16 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
     boundingBoxMax *= scale;
 }
 
-// Get the animation associated to the node
-aiNodeAnim* Model::findNodeAnimation(aiString name)
-{
-    aiAnimation* a = animations[currentAnimation];
-    for (unsigned int i = 0; i < a->mNumChannels; i++) {
-        if (name == a->mChannels[i]->mNodeName)
-            return a->mChannels[i];
-    }
-    return nullptr;
-}
-
-glm::quat interpolateRotationKeyframes(aiNodeAnim* animation, double time)
-{
-    // In order to interpolate we need at least 2 values
-    if (animation->mNumRotationKeys == 1)
-        return toQuat(animation->mRotationKeys[0].mValue);
-
-    // Get the current rotation keyframe
-    unsigned int index = 0;
-    for (unsigned int i = 0; i < animation->mNumRotationKeys; i++) {
-        if (animation->mRotationKeys[i].mTime > time) {
-            index = i - 1;
-            break;
-        }
-    }
-    assert(index + 1 < animation->mNumRotationKeys);
-
-    // Calculate the percentage of the animation that has ran
-    aiQuatKey a = animation->mRotationKeys[index];
-    aiQuatKey b = animation->mRotationKeys[index + 1];
-    double percentage = (time - a.mTime) / (b.mTime - a.mTime);
-    assert(percentage >= 0.0 && percentage <= 1.0);
-
-    aiQuaternion result;
-    aiQuaternionInterpolate(&result, &a.mValue, &b.mValue, percentage);
-    return toQuat(result.Normalize());
-}
-
-glm::vec3 interpolateVectorKeyframes(aiVectorKey* keyframes, int numKeyframes, double time)
-{
-    // In order to interpolate we need at least 2 values
-    if (numKeyframes == 1)
-        return toVec3(keyframes[0].mValue);
-
-    // Get the current rotation keyframe
-    int index = 0;
-    for (int i = 0; i < numKeyframes; i++) {
-        if (keyframes[i].mTime > time) {
-            index = i - 1;
-            break;
-        }
-    }
-    assert(index + 1 < numKeyframes);
-
-    // Calculate the percentage of the animation that has ran
-    aiVectorKey a = keyframes[index];
-    aiVectorKey b = keyframes[index + 1];
-    float percentage = (time - a.mTime) / (b.mTime - a.mTime);
-    assert(percentage >= 0.0 && percentage <= 1.0);
-    // Linearly interpolate the two positions
-    // TODO: doesn't asismp have different interpolate types??
-    aiVector3D result = a.mValue + percentage * (b.mValue - a.mValue);
-    return toVec3(result);
-}
-
-void Model::calculateBoneTransform(aiNode* node, double time, glm::mat4 parentTransform, int& meshIndex)
-{
-    aiString name = node->mName;
-    std::string nameStr = std::string(name.C_Str());
-
-    glm::mat4 transform = assimpToGlmMatrix(node->mTransformation);
-    aiNodeAnim* animation = findNodeAnimation(node->mName);
-
-    // Get the node transform by interpolating the position, scaling and rotation keyframes
-    if (animation) {
-        glm::quat quaternion = interpolateRotationKeyframes(animation, time);
-        glm::mat4 rotation = glm::mat4(quaternion);
-
-        glm::vec3 pos = interpolateVectorKeyframes(animation->mPositionKeys, animation->mNumPositionKeys, time);
-        glm::mat4 translation = glm::translate(glm::mat4(1.0), pos);
-
-        glm::vec3 scale = interpolateVectorKeyframes(animation->mScalingKeys, animation->mNumScalingKeys, time);
-        glm::mat4 scaling = glm::scale(glm::mat4(1.0), scale);
-
-        transform = translation * rotation * scaling;
-    }
-
-    // If we have a bone, set its transformation matrix, else set the
-    // transform of the mesh directly (which will be used in the model matrix).
-    glm::mat4 globalTransform = parentTransform * transform;
-    if (boneMap.count(nameStr)) {
-        Bone& bone = boneMap[nameStr];
-        boneTransforms[bone.id] = globalTransform * bone.inverseBindMatrix;
-    } else {
-        for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-            meshes[meshIndex].transform = globalTransform;
-            meshIndex++;
-        }
-    }
-
-    for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        calculateBoneTransform(node->mChildren[i], time, globalTransform, meshIndex);
-    }
-}
-
 void Model::draw(Shader& shader, double timeInSeconds)
 {
-    // translate, rotate, scale (so that it's actually done in reverse)
     glm::mat4 transform = glm::mat4(1.0);
     transform = glm::translate(transform, position);
     transform = glm::scale(transform, scale);
 
-    // Calculate the bone transforms for the current animation
-    if (animations) {
-        int meshIndex = 0;
-        aiAnimation* animation = animations[currentAnimation];
-        double tps = animation->mTicksPerSecond == 0 ? 25.0 : animation->mTicksPerSecond;
-        double time = fmod(timeInSeconds * tps, animation->mDuration);
-        calculateBoneTransform(rootNode, time, glm::mat4(1.0), meshIndex);
-    }
+    Animation* animation = animator.run(timeInSeconds);
 
-    for (Mesh& mesh : meshes) {
+    for (size_t i = 0; i < meshes.size(); i++) {
+        Mesh& mesh = meshes[i];
         if (!mesh.initialized) {
             mesh.initialized = true;
             mesh.init();
@@ -379,12 +223,16 @@ void Model::draw(Shader& shader, double timeInSeconds)
         }
 
         // Set the bone transforms
-        for (size_t i = 0; i < boneTransforms.size(); i++) {
-            shader.set<glm::mat4>(std::format("boneTransforms[{}]", i).c_str(), boneTransforms[i]);
+        if (animation != nullptr) {
+            for (size_t j = 0; j < animation->boneTransforms.size(); j++) {
+                shader.set<glm::mat4>(std::format("boneTransforms[{}]", j).c_str(), animation->boneTransforms[j]);
+            }
+            shader.set<glm::mat4>("meshTransform", animation->meshTransforms[i]);
+        } else {
+            shader.set<glm::mat4>("meshTransform", glm::mat4(1.0));
         }
 
         shader.set<glm::mat4>("model", transform);
-        shader.set<glm::mat4>("meshTransform", mesh.transform);
         shader.set<int>("hasNormalMap", mesh.textures.count("normal") > 0);
         glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
     }
