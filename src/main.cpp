@@ -1,3 +1,4 @@
+#include "imgui_internal.h"
 #include <iostream>
 #include <format>
 
@@ -68,7 +69,7 @@ int main()
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
-    int width = 800, height = 600;
+    int width = 1000, height = 600;
     long unsigned int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     SDL_Window* window = SDL_CreateWindow("mocha", width, height, flags);
     if (window == nullptr)
@@ -81,7 +82,7 @@ int main()
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress))
         log(ERROR, "Couldn't initialize glad!");
 
-    glViewport(0, 0, width, height);
+    glViewport(250, 0, width - 250, height);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEBUG_OUTPUT);
@@ -110,6 +111,7 @@ int main()
         log(ERROR, message);
     }
 
+    int characterIndex = -1;
     std::vector<Model> models;
     std::vector<std::string> paths = {
         "../assets/cube.glb",
@@ -131,6 +133,7 @@ int main()
                     // 1.0 and position it on top of the floor
                     m.setSize(glm::vec3(0.0, 1.0, 0.0), true);
                     m.setPosition(glm::vec3(0.0, 0.0, 0.0));
+                    characterIndex = models.size();
                 }
                 models.push_back(m);
             } catch (std::string message) {
@@ -190,8 +193,10 @@ int main()
                 if (event.key.key == SDLK_RIGHT)
                     camera.rotate(1);
             }
-            if (event.type == SDL_EVENT_MOUSE_WHEEL)
-                camera.zoom(event.wheel.y);
+            if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                if (event.wheel.mouse_x >= 250)
+                    camera.zoom(event.wheel.y);
+            }
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -211,8 +216,35 @@ int main()
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Info");
+        int flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+        ImGui::Begin("Info", nullptr, flags);
+        ImGui::SetWindowPos(ImVec2(0, 0));
+        ImGui::SetWindowSize(ImVec2(250, height));
+
         ImGui::Text("%s", fpsCounter.c_str());
+
+        if (characterIndex != -1 && characterIndex < int(models.size())) {
+            Model& model = models[characterIndex];
+            auto animations = model.animationNames();
+            size_t current = model.getCurrentAnimation();
+
+            ImGui::Separator();
+            if (ImGui::Button(model.animationPlaying() ? "Pause" : "Play"))
+                model.toggleAnimation();
+
+            if (ImGui::BeginChild("##list", ImVec2(240, 0))) {
+                for (size_t i = 0; i < animations.size(); i++) {
+                    bool selected = current == i;
+                    if (ImGui::Selectable(animations[i].c_str(), selected))
+                        model.setCurrentAnimation(i);
+                    if (selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+
+                ImGui::EndChild();
+            }
+        }
+
         ImGui::End();
 
         ImGui::Render();

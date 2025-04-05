@@ -8,12 +8,6 @@
 #include "convert.h"
 #include "model.h"
 
-/*
-Changes:
-- TODO: when finally works, add an animation selector gui
-- TODO: the lighting needs help
-*/
-
 void Mesh::init()
 {
     glGenVertexArrays(1, &vao);
@@ -89,6 +83,43 @@ void Model::cleanup()
     }
 }
 
+void Model::setPosition(glm::vec3 v) { position = v; }
+
+int Model::getCurrentAnimation() { return animator.currentAnimation; }
+
+void Model::setCurrentAnimation(int index) { animator.currentAnimation = index; }
+
+void Model::toggleAnimation() { animator.playing = !animator.playing; }
+
+bool Model::animationPlaying() { return animator.playing; }
+
+std::vector<std::string> Model::animationNames() { return animator.animationNames(); }
+
+void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
+{
+    float xScale = size.x / (boundingBoxMax.x - boundingBoxMin.x);
+    float yScale = size.y / (boundingBoxMax.y - boundingBoxMin.y);
+    float zScale = size.z / (boundingBoxMax.z - boundingBoxMin.z);
+
+    if (preserveAspectRatio) {
+        float uniformScale = std::max({ xScale, yScale, zScale });
+        scale = glm::vec3(uniformScale);
+    } else {
+        scale = glm::vec3(xScale, yScale, zScale);
+    }
+
+    boundingBoxMin *= scale;
+    boundingBoxMax *= scale;
+}
+
+void Model::updateBoundingBox(glm::vec3 v)
+{
+    for (int i = 0; i < 3; i++) {
+        boundingBoxMin[i] = std::min(boundingBoxMin[i], v[i]);
+        boundingBoxMax[i] = std::max(boundingBoxMax[i], v[i]);
+    }
+}
+
 void Model::processNode(const aiScene* scene, const aiNode* node)
 {
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
@@ -116,7 +147,7 @@ void Model::getBoneWeights(aiMesh* data, Mesh& mesh)
 {
     for (unsigned int i = 0; i < data->mNumBones; i++) {
         aiBone* bone = data->mBones[i];
-        std::string name = bone->mName.C_Str();
+        std::string name = std::string(bone->mName.C_Str());
         int boneId = animator.getBoneId(name);
 
         for (unsigned int j = 0; j < bone->mNumWeights; j++) {
@@ -168,33 +199,6 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
     getBoneWeights(data, mesh);
 
     meshes.push_back(std::move(mesh));
-}
-
-void Model::updateBoundingBox(glm::vec3 v)
-{
-    for (int i = 0; i < 3; i++) {
-        boundingBoxMin[i] = std::min(boundingBoxMin[i], v[i]);
-        boundingBoxMax[i] = std::max(boundingBoxMax[i], v[i]);
-    }
-}
-
-void Model::setPosition(glm::vec3 v) { position = v; }
-
-void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
-{
-    float xScale = size.x / (boundingBoxMax.x - boundingBoxMin.x);
-    float yScale = size.y / (boundingBoxMax.y - boundingBoxMin.y);
-    float zScale = size.z / (boundingBoxMax.z - boundingBoxMin.z);
-
-    if (preserveAspectRatio) {
-        float uniformScale = std::max({ xScale, yScale, zScale });
-        scale = glm::vec3(uniformScale);
-    } else {
-        scale = glm::vec3(xScale, yScale, zScale);
-    }
-
-    boundingBoxMin *= scale;
-    boundingBoxMax *= scale;
 }
 
 void Model::draw(Shader& shader, double timeInSeconds)

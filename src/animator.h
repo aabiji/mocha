@@ -21,9 +21,11 @@ public:
     Animation(aiAnimation* data, BoneMap& bones);
     void computeBoneTransform(
         BoneMap& bones, Node& node,
-        double time, glm::mat4 parentTransform
+        glm::mat4 parentTransform,
+        double time, bool playing
     );
 
+    std::string name;
     double ticksPerSecond, duration;
     std::vector<glm::mat4> boneTransforms;
     std::vector<glm::mat4> meshTransforms;
@@ -37,16 +39,18 @@ class Animator
 public:
     void load(const aiScene* scene);
     int getBoneId(std::string name);
+    std::vector<std::string> animationNames();
 
     // Compute the bone transforms for the current transform given the
     // time in seconds and return a pointer to the current animation.
     Animation* run(double seconds);
+
+    bool playing;
+    size_t currentAnimation;
 private:
     Node readNodeData(const aiScene* scene, aiNode* data);
 
-    int currentAnimation;
-    std::vector<Animation> animations;
-
     Node rootNode;
     BoneMap bones;
+    std::vector<Animation> animations;
 };

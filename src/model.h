@@ -29,6 +29,13 @@ public:
 
     void setPosition(glm::vec3 v);
     void setSize(glm::vec3 size, bool preserveAspectRatio);
+
+    void toggleAnimation();
+    bool animationPlaying();
+
+    int getCurrentAnimation();
+    void setCurrentAnimation(int index);
+    std::vector<std::string> animationNames();
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, aiMesh* meshData);
