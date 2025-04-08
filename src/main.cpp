@@ -1,4 +1,3 @@
-#include "imgui_internal.h"
 #include <iostream>
 #include <format>
 
@@ -128,12 +127,14 @@ int main()
                     // Scale and position the floor
                     m.setSize(glm::vec3(10.0, 0.5, 10.0), false);
                     m.setPosition(glm::vec3(0.0, -0.5, 0.0));
+                    m.name = "floor";
                 } else {
                     // Scale the model to have a height of
                     // 1.0 and position it on top of the floor
                     m.setSize(glm::vec3(0.0, 1.0, 0.0), true);
                     m.setPosition(glm::vec3(0.0, 0.0, 0.0));
                     characterIndex = models.size();
+                    m.name = "player";
                 }
                 models.push_back(m);
             } catch (std::string message) {
@@ -169,6 +170,9 @@ int main()
     while (running) {
         unsigned int startMs = SDL_GetTicks();
 
+        glm::mat4 projectionMatrix = camera.getProjection(width, height);
+        glm::mat4 viewMatrix = camera.getView();
+
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
 
@@ -197,15 +201,38 @@ int main()
                 if (event.wheel.mouse_x >= 250)
                     camera.zoom(event.wheel.y);
             }
+            if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                /* TODO: check if the mouse is hovering over the model's bounding box
+                // Convert mouse x and y into normalized device coordinates
+                float x = (2.0 * event.motion.x) / width - 1.0;
+                float y = 1.0 - (2.0 * event.motion.y) / height;
+
+                // Convert the normalize device coordinate to a point in clip space
+                // We're setting z to -1 to make it point inside the window
+                glm::vec4 rayClip = glm::vec4(x, y, -1, 1.0);
+
+                // Convert the coordinate from clip space to view space
+                glm::vec4 rayView = glm::inverse(projectionMatrix) * rayClip;
+                rayView = glm::vec4(rayView.x, rayView.y, -1.0, 1.0);
+
+                // Convert the coordinate from view space to world space
+                glm::vec4 rayWorld = glm::inverse(viewMatrix) * rayView;
+                glm::vec3 direction = glm::normalize(glm::vec3(rayWorld));
+
+                for (Model& model : models) {
+                    if (model.box.rayIntersects(camera.getPosition(), direction))
+                        std::cout << "Mouse hovering over " << model.name << "\n";
+                }
+                */
+            }
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(bg.x, bg.y, bg.z, 1.0);
 
         shader.use();
-
-        shader.set<glm::mat4>("view", camera.getView());
-        shader.set<glm::mat4>("projection", camera.getProjection(width, height));
+        shader.set<glm::mat4>("view", viewMatrix);
+        shader.set<glm::mat4>("projection", projectionMatrix);
         shader.set<glm::vec3>("viewPosition", camera.getPosition());
 
         for (Model& m : models)

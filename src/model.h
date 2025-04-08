@@ -3,6 +3,7 @@
 #include <assimp/mesh.h>
 
 #include "animator.h"
+#include "box.h"
 #include "shader.h"
 #include "textures.h"
 
@@ -36,19 +37,18 @@ public:
     int getCurrentAnimation();
     void setCurrentAnimation(int index);
     std::vector<std::string> animationNames();
+
+    std::string name;
+    BoundingBox box;
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, aiMesh* meshData);
-    void updateBoundingBox(glm::vec3 v);
 
     void getBoneWeights(aiMesh* data, Mesh& mesh);
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
     glm::vec3 scale;
     glm::vec3 position;
-
-    glm::vec3 boundingBoxMin;
-    glm::vec3 boundingBoxMax;
 
     Animator animator;
     std::vector<Mesh> meshes;

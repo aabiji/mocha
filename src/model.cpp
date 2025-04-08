@@ -52,15 +52,12 @@ void Mesh::cleanup()
     }
 }
 
-
+#include <iostream>
 Model::Model(std::string path, std::string textureBasePath)
     : textureLoader(textureBasePath)
 {
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
-
-    boundingBoxMin = glm::vec3(std::numeric_limits<float>::max());
-    boundingBoxMax = glm::vec3(std::numeric_limits<float>::min());
 
     Assimp::Importer importer;
     unsigned int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
@@ -74,6 +71,9 @@ Model::Model(std::string path, std::string textureBasePath)
 
     animator.load(scene);
     processNode(scene, scene->mRootNode);
+
+    std::cout << "Bounding box min: " << box.min.x << ", " << box.min.y << ", " << box.min.z << "\n";
+    std::cout << "Bounding box max: " << box.max.x << ", " << box.max.y << ", " << box.max.z << "\n";
 }
 
 void Model::cleanup()
@@ -97,9 +97,9 @@ std::vector<std::string> Model::animationNames() { return animator.animationName
 
 void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
 {
-    float xScale = size.x / (boundingBoxMax.x - boundingBoxMin.x);
-    float yScale = size.y / (boundingBoxMax.y - boundingBoxMin.y);
-    float zScale = size.z / (boundingBoxMax.z - boundingBoxMin.z);
+    float xScale = size.x / (box.max.x - box.min.x);
+    float yScale = size.y / (box.max.y - box.min.y);
+    float zScale = size.z / (box.max.z - box.min.z);
 
     if (preserveAspectRatio) {
         float uniformScale = std::max({ xScale, yScale, zScale });
@@ -108,16 +108,8 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
         scale = glm::vec3(xScale, yScale, zScale);
     }
 
-    boundingBoxMin *= scale;
-    boundingBoxMax *= scale;
-}
-
-void Model::updateBoundingBox(glm::vec3 v)
-{
-    for (int i = 0; i < 3; i++) {
-        boundingBoxMin[i] = std::min(boundingBoxMin[i], v[i]);
-        boundingBoxMax[i] = std::max(boundingBoxMax[i], v[i]);
-    }
+    box.min *= scale;
+    box.max *= scale;
 }
 
 void Model::processNode(const aiScene* scene, const aiNode* node)
@@ -194,8 +186,8 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
         mesh.vertices.push_back(v);
     }
 
-    updateBoundingBox(toVec3(data->mAABB.mMin));
-    updateBoundingBox(toVec3(data->mAABB.mMax));
+    box.update(toVec3(data->mAABB.mMin));
+    box.update(toVec3(data->mAABB.mMax));
     getBoneWeights(data, mesh);
 
     meshes.push_back(std::move(mesh));
