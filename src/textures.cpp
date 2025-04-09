@@ -13,8 +13,12 @@ Texture::Texture(const aiTexture* data)
     pixels = (unsigned char *)data->pcData;
 
     int channels = 4;
-    if (height == 0) // The texture was compressed
+    if (height == 0) {
+        // The texture was compressed
         pixels = stbi_load_from_memory(pixels, sizeof(aiTexel) * width, &width, &height, &channels, 0);
+        if (pixels == nullptr)
+            throw "Invalid texture data\n";
+    }
 
     format = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
 }
@@ -23,6 +27,8 @@ Texture::Texture(std::string path)
 {
     int channels = 0;
     pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
+    if (pixels == nullptr)
+        throw "Couldn't read " + path;
     format = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;
 }
 
@@ -48,10 +54,8 @@ void Texture::init()
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
-TextureLoader::TextureLoader(std::string base)
+TextureLoader::TextureLoader()
 {
-    basePath = base;
-
     samplerNames[aiTextureType_DIFFUSE] = "diffuse";
     defaults["diffuse"]  = Texture(255);
 

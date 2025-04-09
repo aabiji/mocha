@@ -46,7 +46,6 @@ std::string preprocess(std::string path, std::string& basePath)
 }
 
 void Shader::cleanup() { glDeleteProgram(program); }
-
 void Shader::use() { glUseProgram(program); }
 
 void Shader::load(int type, const char* path)

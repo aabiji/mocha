@@ -9,22 +9,24 @@
 
 struct Mesh
 {
-    // Initialize/clenaup the OpenGL objects
     void init();
     void cleanup();
-    bool initialized;
+    void draw(Shader& shader);
 
-    // These will be set when the vertices are loaded
+    // Vertex array object, vertex buffer object, element buffer object
     unsigned int vao, vbo, ebo;
+
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indexes;
+
+    bool initialized;
     TextureMap textures;
 };
 
 class Model
 {
 public:
-    Model(std::string path, std::string textureBasePath);
+    Model(std::string id, std::string path, std::string textureBasePath);
     void draw(Shader& shader, double timeInSeconds);
     void cleanup();
 
@@ -38,8 +40,7 @@ public:
     void setCurrentAnimation(int index);
     std::vector<std::string> animationNames();
 
-    std::string name;
-    BoundingBox box;
+    bool isCalled(std::string s) { return name == s; }
 private:
     void processNode(const aiScene* scene, const aiNode* node);
     void processMesh(const aiScene* scene, aiMesh* meshData);
@@ -47,8 +48,11 @@ private:
     void getBoneWeights(aiMesh* data, Mesh& mesh);
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
+    std::string name;
+
     glm::vec3 scale;
     glm::vec3 position;
+    BoundingBox box;
 
     Animator animator;
     std::vector<Mesh> meshes;

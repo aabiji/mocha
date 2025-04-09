@@ -22,6 +22,7 @@ FetchContent_MakeAvailable(imgui)
 add_executable(
     app
     src/animator.cpp
+    src/engine.cpp
     src/keyframes.cpp
     src/main.cpp
     src/model.cpp

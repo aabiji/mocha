@@ -24,9 +24,10 @@ using TextureMap = std::unordered_map<std::string, Texture>;
 class TextureLoader
 {
 public:
-    TextureLoader(std::string base);
+    TextureLoader();
     TextureMap get(const aiScene* scene, const aiMaterial* material);
     void cleanup();
+    void setBasePath(std::string path) { basePath = path; }
 private:
     std::string basePath;
     TextureMap cache;

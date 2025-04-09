@@ -42,6 +42,28 @@ void Mesh::init()
     glBindVertexArray(0);
 }
 
+void Mesh::draw(Shader& shader)
+{
+    if (!initialized) {
+        initialized = true;
+        init();
+    }
+    glBindVertexArray(vao);
+
+    // Bind the texture samplers
+    int index = 0;
+    for (auto& [sampler, texture] : textures) {
+        glActiveTexture(GL_TEXTURE0 + index);
+        shader.set<int>(("material." + sampler).c_str(), index);
+        glBindTexture(GL_TEXTURE_2D, texture.id);
+        index++;
+    }
+
+    // Draw
+    shader.set<int>("hasNormalMap", textures.count("normal") > 0);
+    glDrawElements(GL_TRIANGLES, indexes.size(), GL_UNSIGNED_INT, 0);
+}
+
 void Mesh::cleanup()
 {
     glDeleteVertexArrays(1, &vao);
@@ -52,10 +74,9 @@ void Mesh::cleanup()
     }
 }
 
-#include <iostream>
-Model::Model(std::string path, std::string textureBasePath)
-    : textureLoader(textureBasePath)
+Model::Model(std::string id, std::string path, std::string textureBasePath)
 {
+    name = id;
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
 
@@ -72,8 +93,7 @@ Model::Model(std::string path, std::string textureBasePath)
     animator.load(scene);
     processNode(scene, scene->mRootNode);
 
-    std::cout << "Bounding box min: " << box.min.x << ", " << box.min.y << ", " << box.min.z << "\n";
-    std::cout << "Bounding box max: " << box.max.x << ", " << box.max.y << ", " << box.max.z << "\n";
+    textureLoader.setBasePath(textureBasePath);
 }
 
 void Model::cleanup()
@@ -198,27 +218,13 @@ void Model::draw(Shader& shader, double timeInSeconds)
     glm::mat4 transform = glm::mat4(1.0);
     transform = glm::translate(transform, position);
     transform = glm::scale(transform, scale);
+    shader.set<glm::mat4>("model", transform);
 
     Animation* animation = animator.run(timeInSeconds);
 
     for (size_t i = 0; i < meshes.size(); i++) {
         Mesh& mesh = meshes[i];
-        if (!mesh.initialized) {
-            mesh.initialized = true;
-            mesh.init();
-        }
-        glBindVertexArray(mesh.vao);
 
-        // Bind the texture samplers
-        int index = 0;
-        for (auto& [sampler, texture] : mesh.textures) {
-            glActiveTexture(GL_TEXTURE0 + index);
-            shader.set<int>(("material." + sampler).c_str(), index);
-            glBindTexture(GL_TEXTURE_2D, texture.id);
-            index++;
-        }
-
-        // Set the bone transforms
         if (animation != nullptr) {
             for (size_t j = 0; j < animation->boneTransforms.size(); j++) {
                 shader.set<glm::mat4>(std::format("boneTransforms[{}]", j).c_str(), animation->boneTransforms[j]);
@@ -228,9 +234,7 @@ void Model::draw(Shader& shader, double timeInSeconds)
             shader.set<glm::mat4>("meshTransform", glm::mat4(1.0));
         }
 
-        shader.set<glm::mat4>("model", transform);
-        shader.set<int>("hasNormalMap", mesh.textures.count("normal") > 0);
-        glDrawElements(GL_TRIANGLES, mesh.indexes.size(), GL_UNSIGNED_INT, 0);
+        mesh.draw(shader);
     }
 
     textureLoader.cleanup(); // Don't need the texture pixels anymore

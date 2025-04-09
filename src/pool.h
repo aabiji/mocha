@@ -11,7 +11,7 @@ using Task = std::function<void()>;
 class ThreadPool
 {
 public:
-    ThreadPool(int numThreads)
+    void init(int numThreads)
     {
         stop = false;
         for (int i = 0; i < numThreads; i++) {

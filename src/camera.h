@@ -6,7 +6,7 @@
 class Camera
 {
 public:
-    Camera(glm::vec3 _target, float _distance)
+    void init(glm::vec3 _target, float _distance)
     {
         target = _target;
         distance = _distance;
