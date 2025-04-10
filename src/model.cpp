@@ -90,10 +90,10 @@ Model::Model(std::string id, std::string path, std::string textureBasePath)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    animator.load(scene);
-    processNode(scene, scene->mRootNode);
-
     textureLoader.setBasePath(textureBasePath);
+    animator.load(scene);
+
+    processNode(scene, scene->mRootNode);
 }
 
 void Model::cleanup()
@@ -213,11 +213,13 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
     meshes.push_back(std::move(mesh));
 }
 
+#include <iostream>
 void Model::draw(Shader& shader, double timeInSeconds)
 {
     glm::mat4 transform = glm::mat4(1.0);
     transform = glm::translate(transform, position);
     transform = glm::scale(transform, scale);
+    std::cout << "Scale: " << scale.x << " " << scale.y << " " << scale.z << "\n";
     shader.set<glm::mat4>("model", transform);
 
     Animation* animation = animator.run(timeInSeconds);

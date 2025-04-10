@@ -1,6 +1,3 @@
-#include <format>
-#include <iostream>
-
 #define IMGUI_USER_CONFIG "imgui_config.h"
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -12,6 +9,7 @@
 #include <SDL3/SDL_main.h>
 
 #include "engine.h"
+#include "log.h"
 
 /*
 TODO:
@@ -26,28 +24,7 @@ TODO:
   More high quality 3d models can be found here: https://polyhaven.com/models
 */
 
-struct App
-{
-    Engine engine;
-    SDL_Window* window;
-    SDL_GLContext context;
-};
-
-enum LogType {
-    DEBUG = 32,
-    WARN  = 33,
-    ERROR = 31
-};
-
-void log(LogType type, std::string message)
-{
-    std::cout << "[\x1b[1;" << type << "m";
-    std::cout << (type == DEBUG ? "DEBUG" : type == WARN ? "WARN" : "ERROR");
-    std::cout << "\x1b[;39m] " << message << "\n";
-    if (type == ERROR) std::abort(); // Exit with a backtrace
-}
-
-void debugCallback(
+static void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)
 {
@@ -68,6 +45,13 @@ void debugCallback(
     log(t, std::format("From {} | {}", sourceStr, message));
 }
 
+struct App
+{
+    Engine engine;
+    SDL_Window* window;
+    SDL_GLContext context;
+};
+
 SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
 {
     (void)argc;
@@ -82,21 +66,20 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
 
     App* app = new App;
 
-    app->window = SDL_CreateWindow("mocha", 900, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    app->window = SDL_CreateWindow("mocha", 900, 600, SDL_WINDOW_OPENGL);
     if (app->window == nullptr)
         log(ERROR, SDL_GetError());
 
     app->context = SDL_GL_CreateContext(app->window);
     if (app->context == nullptr)
         log(ERROR, SDL_GetError());
-    SDL_GL_MakeCurrent(app->window, app->context);
 
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress))
         log(ERROR, "Couldn't initialize glad!");
     glDebugMessageCallback(debugCallback, 0);
 
     try {
-        app->engine.init(glm::vec4(230, 0, 900, 600));
+        app->engine.init(900, 600, 230);
     } catch (std::string msg) {
         log(ERROR, msg);
     }
@@ -112,9 +95,7 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     io.Fonts->AddFontFromFileTTF("../assets/Roboto-Regular.ttf", 15);
     ImGui::StyleColorsDark();
 
-    state = (void**)&app;
-    (void)state;
-
+    *state = app;
     return SDL_APP_CONTINUE;
 }
 
@@ -123,7 +104,6 @@ SDL_AppResult SDL_AppIterate(void* state)
     App* app = (App*)state;
     unsigned int startMs = SDL_GetTicks();
 
-    SDL_GL_MakeCurrent(app->window, app->context);
     app->engine.draw(double(SDL_GetTicks()) / 1000.0);
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -135,7 +115,7 @@ SDL_AppResult SDL_AppIterate(void* state)
     unsigned int endMs = SDL_GetTicks();
 
     float fps = std::floor(1000.0 / float(endMs - startMs));
-    app->engine.setFPS(fps);
+    app->engine.setFPS(int(fps));
 
     return SDL_APP_CONTINUE;
 }

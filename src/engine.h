@@ -16,7 +16,7 @@ struct Light
 class Engine
 {
 public:
-    void init(glm::vec4 view);
+    void init(int width, int height, int panelSize);
     void cleanup();
 
     void draw(float timeInSeconds);
@@ -36,8 +36,9 @@ private:
 
     void initLights();
 
-    float fps;
-    glm::vec4 viewport;
+    int fps;
+    int sidePanelWidth;
+    glm::vec2 windowSize;
 
     Camera camera;
     Shader shader;
