@@ -24,8 +24,6 @@ public:
 
     void setFPS(float _fps) { fps = _fps; }
 
-    void mouseHover(int mouseX, int mouseY);
-
     bool insideViewport(int mouseX, int mouseY);
     void resizeViewport(int width, int height);
 

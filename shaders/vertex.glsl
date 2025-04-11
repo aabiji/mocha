@@ -24,28 +24,32 @@ uniform mat4 projection;
 uniform vec3 viewPosition;
 
 uniform mat4 meshTransform; // Fallback transform when the vertex has no associated bone
-uniform mat4 boneTransforms[41]; // TODO: size???
+uniform mat4 boneTransforms[100]; // TODO: size???
 
 void main()
 {
+    vec4 basePosition = meshTransform * vec4(position, 1.0);
+    vec3 baseNormal = mat3(meshTransform) * normal;
+
     vec4 updatedPosition = vec4(0.0);
     vec3 updatedNormal = vec3(0.0);
 
     // Transform the vertex with the given bone transformations
     for (int i = 0; i < 4; i++) {
         // Bone has no influence
-        if (boneIds[i] == -1) continue;
+        if (boneIds[i] == -1 || boneIds[i] > boneTransforms.length())
+            break;
 
-        vec4 p = boneTransforms[boneIds[i]] * vec4(position, 1.0);
+        vec4 p = boneTransforms[boneIds[i]] * basePosition;
         updatedPosition += p * boneWeights[i];
 
-        vec3 n = mat3(boneTransforms[boneIds[i]]) * normal;
+        vec3 n = mat3(boneTransforms[boneIds[i]]) * baseNormal;
         updatedNormal += n * boneWeights[i];
     }
 
-    if (boneIds == vec4(-1)) { // Vertex has no associated bones
-        updatedPosition = meshTransform * vec4(position, 1.0);
-        updatedNormal = mat3(meshTransform) * normal;
+    if (boneIds == vec4(-1)) { // Has no bone influence
+        updatedPosition = basePosition;
+        updatedNormal = baseNormal;
     }
 
     // Scale the vertex normal and tangent properly

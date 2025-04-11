@@ -13,7 +13,6 @@
 
 /*
 TODO:
-- transform meshes properly
 - check if the mouse is hovering over a model
 - Show side info based on the currently selected model
 - upload lights and transformation matrices in a shader storage object
@@ -42,7 +41,7 @@ static void debugCallback(
     LogType t = severity == GL_DEBUG_SEVERITY_HIGH
         ? ERROR
         : severity == GL_DEBUG_SEVERITY_MEDIUM ? WARN : DEBUG;
-    log(t, std::format("From {} | {}", sourceStr, message));
+    log(t, "From " + sourceStr + " | " + message);
 }
 
 struct App
@@ -149,10 +148,6 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
                 app->engine.zoomCamera(event->wheel.y);
             break;
         }
-
-        case SDL_EVENT_MOUSE_MOTION:
-            app->engine.mouseHover(event->motion.x, event->motion.y);
-            break;
     }
 
     return SDL_APP_CONTINUE;

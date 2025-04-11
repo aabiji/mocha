@@ -1,5 +1,3 @@
-#include <format>
-
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 
@@ -117,15 +115,19 @@ std::vector<std::string> Model::animationNames() { return animator.animationName
 
 void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
 {
-    float xScale = size.x / (box.max.x - box.min.x);
-    float yScale = size.y / (box.max.y - box.min.y);
-    float zScale = size.z / (box.max.z - box.min.z);
+    glm::vec3 boxSize = box.max - box.min;
+    if (FLOAT_EQUAL(boxSize.x, size.x) ||
+        FLOAT_EQUAL(boxSize.y, size.y) ||
+        FLOAT_EQUAL(boxSize.z, size.z)) {
+        return; // Already resized to the size
+    }
 
+    glm::vec3 factor = size / boxSize;
     if (preserveAspectRatio) {
-        float uniformScale = std::max({ xScale, yScale, zScale });
+        float uniformScale = std::max({ factor.x, factor.y, factor.z });
         scale = glm::vec3(uniformScale);
     } else {
-        scale = glm::vec3(xScale, yScale, zScale);
+        scale = factor;
     }
 
     box.min *= scale;
@@ -213,13 +215,11 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
     meshes.push_back(std::move(mesh));
 }
 
-#include <iostream>
 void Model::draw(Shader& shader, double timeInSeconds)
 {
     glm::mat4 transform = glm::mat4(1.0);
     transform = glm::translate(transform, position);
     transform = glm::scale(transform, scale);
-    std::cout << "Scale: " << scale.x << " " << scale.y << " " << scale.z << "\n";
     shader.set<glm::mat4>("model", transform);
 
     Animation* animation = animator.run(timeInSeconds);
@@ -229,7 +229,8 @@ void Model::draw(Shader& shader, double timeInSeconds)
 
         if (animation != nullptr) {
             for (size_t j = 0; j < animation->boneTransforms.size(); j++) {
-                shader.set<glm::mat4>(std::format("boneTransforms[{}]", j).c_str(), animation->boneTransforms[j]);
+                std::string name = "boneTransforms[" + std::to_string(j) + "]";
+                shader.set<glm::mat4>(name.c_str(), animation->boneTransforms[j]);
             }
             shader.set<glm::mat4>("meshTransform", animation->meshTransforms[i]);
         } else {

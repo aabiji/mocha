@@ -23,7 +23,7 @@ void Engine::init(int width, int height, int panelSize)
     resizeViewport(width, height);
 
     initLights();
-    camera.init(glm::vec3(0.0), 5);
+    camera.init(glm::vec3(0.0), 3);
 
     pool.init(3);
     loadModel("floor", "../assets/cube.glb", "");
@@ -53,34 +53,6 @@ void Engine::resizeViewport(int width, int height)
     windowSize.y = height;
     windowSize.x = width - sidePanelWidth;
     glViewport(sidePanelWidth, 0, windowSize.x, windowSize.y);
-}
-
-void Engine::mouseHover(int mouseX, int mouseY)
-{
-    (void)mouseX;
-    (void)mouseY;
-    /*
-    // Convert mouse x and y into normalized device coordinates
-    float x = (2.0 * mouseX) / windowSize.x - 1.0;
-    float y = 1.0 - (2.0 * mouseY) / windowSize.y;
-
-    // Convert the normalize device coordinate to a point in clip space
-    // We're setting z to -1 to make it point inside the window
-    glm::vec4 rayClip = glm::vec4(x, y, -1, 1.0);
-
-    // Convert the coordinate from clip space to view space
-    glm::vec4 rayView = glm::inverse(projectionMatrix) * rayClip;
-    rayView = glm::vec4(rayView.x, rayView.y, -1.0, 1.0);
-
-    // Convert the coordinate from view space to world space
-    glm::vec4 rayWorld = glm::inverse(viewMatrix) * rayView;
-    glm::vec3 direction = glm::normalize(glm::vec3(rayWorld));
-
-    for (Model& model : models) {
-        if (model.box.rayIntersects(camera.getPosition(), direction))
-            std::cout << "Mouse hovering over " << model.name << "\n";
-    }
-    */
 }
 
 void Engine::loadModel(std::string name, std::string path, std::string base)
@@ -172,15 +144,13 @@ void Engine::draw(float timeInSeconds)
 
     for (Model& model : models) {
         if (model.isCalled("floor")) {
-            // TODO: so these transform are being applied for some reason...
             model.setSize(glm::vec3(10.0, 0.5, 10.0), false);
             model.setPosition(glm::vec3(0.0, -0.5, 0.0));
         }
-
         if (model.isCalled("player")) {
             model.setSize(glm::vec3(0.0, 1.0, 0.0), true);
             model.setPosition(glm::vec3(0.0, 0.0, 0.0));
         }
-
         model.draw(shader, timeInSeconds);
-    } }
+    }
+}
