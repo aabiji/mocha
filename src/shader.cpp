@@ -1,5 +1,4 @@
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <string>
 #include <type_traits>
@@ -13,7 +12,7 @@ std::string readFile(std::string path)
 {
     std::ifstream file(path);
     if (!file.good())
-        throw std::format("Couldn't read {}", path);
+        throw "Couldn't read " + path;
 
     std::string contents = "";
     std::string line = "";
@@ -63,7 +62,7 @@ void Shader::load(int type, const char* path)
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
-        throw std::format("SHADER ERROR ({}): {}", path, log);
+        throw "SHADER ERROR: (" + std::string(path) + "): " + log;
     }
 
     if (type == GL_VERTEX_SHADER)
@@ -100,11 +99,12 @@ void Shader::assemble()
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(program, sizeof(log), nullptr, log);
-        throw std::format("LINKER ERROR: {}", log);
+        throw "LINKER ERROR: " + std::string(log);
     }
 }
 
 template void Shader::set<int>(const char* name, int value);
+template void Shader::set<unsigned int>(const char* name, unsigned int value);
 template void Shader::set<glm::mat4>(const char* name, glm::mat4 value);
 template void Shader::set<glm::vec3>(const char* name, glm::vec3 value);
 
@@ -118,6 +118,8 @@ void Shader::set(const char* name, T value)
         glUniformMatrix4fv(address, 1, GL_FALSE, glm::value_ptr(value));
     if constexpr (std::is_same<T, int>::value)
         glUniform1i(address, value);
+    if constexpr (std::is_same<T, unsigned int>::value)
+        glUniform1ui(address, value);
 }
 
 unsigned int Shader::createBuffer(int port, int dataSize)

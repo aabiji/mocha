@@ -15,7 +15,8 @@ Texture::Texture(const aiTexture* data)
     int channels = 4;
     if (height == 0) {
         // The texture was compressed
-        pixels = stbi_load_from_memory(pixels, sizeof(aiTexel) * width, &width, &height, &channels, 0);
+        pixels = stbi_load_from_memory(pixels, sizeof(aiTexel) * width, &width,
+                                       &height, &channels, 0);
         if (pixels == nullptr)
             throw "Invalid texture data\n";
     }
@@ -48,9 +49,11 @@ void Texture::init()
     glBindTexture(GL_TEXTURE_2D, id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+                 GL_UNSIGNED_BYTE, pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
@@ -85,7 +88,8 @@ void TextureLoader::cleanup()
 }
 
 // Get the textures that are defined in the material
-TextureMap TextureLoader::get(const aiScene* scene, const aiMaterial* material) {
+TextureMap TextureLoader::get(const aiScene* scene, const aiMaterial* material)
+{
     TextureMap textures;
     for (auto& [type, samplerName]: samplerNames) {
         if (material->GetTextureCount(type) == 0)
