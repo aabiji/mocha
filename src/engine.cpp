@@ -1,5 +1,8 @@
 #define GLAD_GL_IMPLEMENTATION 1
+#include <glad.h>
+
 #include <imgui.h>
+
 #include "engine.h"
 #include "log.h"
 
@@ -14,16 +17,10 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
-    frameBuffer.init(windowSize.x, windowSize.y);
-
-    frameBufferShader.load(GL_VERTEX_SHADER, "../shaders/framebuffer_vertex.glsl");
-    frameBufferShader.load(GL_FRAGMENT_SHADER, "../shaders/framebuffer_fragment.glsl");
-    frameBufferShader.assemble();
-
-    defaultShader.load(GL_VERTEX_SHADER, "../shaders/vertex.glsl");
-    defaultShader.load(GL_FRAGMENT_SHADER, "../shaders/fragment.glsl");
-    defaultShader.assemble();
-    defaultShader.use();
+    shader.load(GL_VERTEX_SHADER, "../shaders/vertex.glsl");
+    shader.load(GL_FRAGMENT_SHADER, "../shaders/fragment.glsl");
+    shader.assemble();
+    shader.use();
 
     initLights();
     camera.init(glm::vec3(0.0), 3);
@@ -37,9 +34,7 @@ void Engine::cleanup()
 {
     for (Model& model : models)
         model.cleanup();
-    frameBuffer.cleanup();
-    frameBufferShader.cleanup();
-    defaultShader.cleanup();
+    shader.cleanup();
     pool.terminate();
 }
 
@@ -48,21 +43,29 @@ void Engine::zoomCamera(int deltaY) { camera.zoom(deltaY); }
 
 bool Engine::insideViewport(int mouseX, int mouseY)
 {
-    bool xInside = mouseX >= windowSize.x && mouseX <= windowSize.x + windowSize.x;
-    bool yInside = mouseY >= windowSize.y && mouseY <= windowSize.y + windowSize.y;
-    return xInside && yInside;
+    return mouseX >= sidePanelWidth &&
+           mouseX <= viewport.x + sidePanelWidth &&
+           mouseY >= 0 && mouseY <= viewport.y;
 }
 
 void Engine::resizeViewport(int width, int height)
 {
-    windowSize.y = height;
-    windowSize.x = width - sidePanelWidth;
-    glViewport(sidePanelWidth, 0, windowSize.x, windowSize.y);
+    viewport.y = height;
+    viewport.x = width - sidePanelWidth;
+    glViewport(sidePanelWidth, 0, viewport.x, viewport.y);
 }
 
-void Engine::handleMouseHover(int mouseX, int mouseY)
+#include <iostream>
+void Engine::handleClick(int mouseX, int mouseY)
 {
-    std::cout << frameBuffer.readPixel(mouseX, mouseY) << "\n";
+    glm::vec3 rayOrigin;
+    glm::vec3 rayDirection;
+    screenPosToWorldRay(mouseX - sidePanelWidth, mouseY, rayOrigin, rayDirection);
+
+    for (Model& model : models) {
+        if (model.intersects(rayOrigin, rayDirection))
+            std::cout << model.name << "\n";
+    }
 }
 
 void Engine::loadModel(std::string name, std::string path, std::string base)
@@ -83,31 +86,69 @@ void Engine::initLights()
         glm::vec3(0.0, 1.0, -3.0),
         glm::vec3(0.0, 1.0, 3.0),
         glm::vec3(-3.0, 1.0, 0.0),
-        glm::vec3(5.0, 1.0, 0.0)
     };
 
-    Light lights[4];
-    for (int i = 0; i < 4; i++) {
+    Light lights[3];
+    for (int i = 0; i < 3; i++) {
         lights[i] = {
             .color = glm::vec3(0.8),
             .position = positions[i],
-            .c = 1.0, .l = 0.08, .q = 0.032
+            .c = 1.0,
+            .l = 0.08,
+            .q = 0.032
         };
     }
 
-    unsigned int lightsBuffer = defaultShader.createBuffer(1, sizeof(lights));
-    defaultShader.updateBuffer(lightsBuffer, sizeof(lights), &lights);
+    unsigned int lightsBuffer = shader.createBuffer(1, sizeof(lights));
+    shader.updateBuffer(lightsBuffer, sizeof(lights), &lights);
+}
+
+// Convert a coordinate to a ray in world space with an origin and direction
+// (x, y) is an on screen position, where (0, 0) is at the top left
+void Engine::screenPosToWorldRay(
+    float x, float y, glm::vec3& origin, glm::vec3& direction
+)
+{
+    // Get the normalized device coordinates on the near and far plane
+    glm::vec4 nearPos = glm::vec4(
+        (2.0 * x) / viewport.x - 1.0f,
+        1.0f - (2.0 * y) / viewport.y,
+        -1.0, 1.0
+    );
+    glm::vec4 farPos = glm::vec4(
+        (2.0 * x) / viewport.x - 1.0f,
+        1.0f - (2.0 * y) / viewport.y,
+        0.0, 1.0
+    );
+
+    // This matrix converts a position from normalized device
+    // coordinate space into view space and from view space
+    // into world space
+    glm::mat4 inverse = glm::inverse(
+        camera.getProjection(viewport.x, viewport.y) * camera.getView()
+    );
+
+    // Compute the ray start and end positions in world space
+    glm::vec4 rayStart = inverse * nearPos;
+    glm::vec4 rayEnd = inverse * farPos;
+    rayStart /= rayStart.w;
+    rayEnd /= rayEnd.w;
+
+    origin = rayStart;
+    direction = glm::normalize(rayEnd - rayStart);
 }
 
 void Engine::drawGUI()
 {
     ImGui::NewFrame();
 
-    int flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    int flags = ImGuiWindowFlags_NoTitleBar |
+                ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove;
     ImGui::Begin("Info", nullptr, flags);
 
     ImGui::SetWindowPos(ImVec2(0, 0));
-    ImGui::SetWindowSize(ImVec2(sidePanelWidth, windowSize.y));
+    ImGui::SetWindowSize(ImVec2(sidePanelWidth, viewport.y));
 
     ImGui::Text("%s", ("FPS: " + std::to_string(fps)).c_str());
 
@@ -147,10 +188,19 @@ void Engine::drawGUI()
     ImGui::Render();
 }
 
-void Engine::drawModels(Shader& shader, double timeInSeconds)
+
+void Engine::draw(float timeInSeconds)
 {
-    for (unsigned int i = 0; i < models.size(); i++) {
-        Model& model = models[i];
+    shader.use();
+    shader.set<glm::mat4>("view", camera.getView());
+    shader.set<glm::mat4>(
+        "projection", camera.getProjection(viewport.x, viewport.y));
+    shader.set<glm::vec3>("viewPosition", camera.getPosition());
+
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    for (Model& model : models) {
         if (model.isCalled("floor")) {
             model.setSize(glm::vec3(10.0, 0.5, 10.0), false);
             model.setPosition(glm::vec3(0.0, -0.5, 0.0));
@@ -159,29 +209,6 @@ void Engine::drawModels(Shader& shader, double timeInSeconds)
             model.setSize(glm::vec3(0.0, 1.0, 0.0), true);
             model.setPosition(glm::vec3(0.0, 0.0, 0.0));
         }
-        shader.set<unsigned int>("modelId", i);
         model.draw(shader, timeInSeconds);
     }
-}
-
-void Engine::draw(float timeInSeconds)
-{
-    // Draw to the framebuffer
-    frameBuffer.bind();
-    frameBufferShader.use();
-    frameBufferShader.set<glm::mat4>("view", camera.getView());
-    frameBufferShader.set<glm::mat4>("projection", camera.getProjection(windowSize.x, windowSize.y));
-    frameBufferShader.set<glm::vec3>("viewPosition", camera.getPosition());
-    drawModels(frameBufferShader, timeInSeconds);
-
-    // Draw to the default framebuffer
-    frameBuffer.unbind();
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    defaultShader.use();
-    defaultShader.set<glm::mat4>("view", camera.getView());
-    defaultShader.set<glm::mat4>("projection", camera.getProjection(windowSize.x, windowSize.y));
-    defaultShader.set<glm::vec3>("viewPosition", camera.getPosition());
-    drawModels(defaultShader, timeInSeconds);
 }

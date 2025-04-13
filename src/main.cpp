@@ -2,6 +2,8 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_opengl3.h>
 
+#include <glad.h>
+
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -138,8 +140,8 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
                 app->engine.rotateCamera(false);
             break;
 
-        case SDL_EVENT_MOUSE_MOTION:
-            app->engine.handleMouseHover(event->motion.x, event->motion.y);
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            app->engine.handleClick(event->button.x, event->button.y);
             break;
 
         case SDL_EVENT_MOUSE_WHEEL:

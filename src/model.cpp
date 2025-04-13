@@ -113,9 +113,22 @@ bool Model::animationPlaying() { return animator.playing; }
 
 std::vector<std::string> Model::animationNames() { return animator.animationNames(); }
 
+glm::mat4 Model::getTransformationMatrix()
+{
+    glm::mat4 transform = glm::mat4(1.0);
+    transform = glm::translate(transform, position);
+    transform = glm::scale(transform, scale);
+    return transform;
+}
+
 void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
 {
-    glm::vec3 boxSize = box.max - box.min;
+    // TODO: use worldSpaceBoundingBox() instead
+    glm::mat4 mat = getTransformationMatrix();
+    glm::vec3 scaledBoxMin = mat * glm::vec4(box.min, 1.0);
+    glm::vec3 scaledBoxMax = mat * glm::vec4(box.max, 1.0);
+    glm::vec3 boxSize = scaledBoxMax - scaledBoxMin;
+
     if (FLOAT_EQUAL(boxSize.x, size.x) ||
         FLOAT_EQUAL(boxSize.y, size.y) ||
         FLOAT_EQUAL(boxSize.z, size.z)) {
@@ -129,9 +142,6 @@ void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
     } else {
         scale = factor;
     }
-
-    box.min *= scale;
-    box.max *= scale;
 }
 
 void Model::processNode(const aiScene* scene, const aiNode* node)
@@ -217,10 +227,7 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
 
 void Model::draw(Shader& shader, double timeInSeconds)
 {
-    glm::mat4 transform = glm::mat4(1.0);
-    transform = glm::translate(transform, position);
-    transform = glm::scale(transform, scale);
-    shader.set<glm::mat4>("model", transform);
+    shader.set<glm::mat4>("model", getTransformationMatrix());
 
     Animation* animation = animator.run(timeInSeconds);
 
@@ -241,4 +248,50 @@ void Model::draw(Shader& shader, double timeInSeconds)
     }
 
     textureLoader.cleanup(); // Don't need the texture pixels anymore
+}
+
+#include <iostream>
+bool Model::intersects(glm::vec3 rayOrigin, glm::vec3 rayDirection)
+{
+    glm::mat4 matrix = getTransformationMatrix();
+
+    std::cout << "Bounding box min: " << box.min.x << ", " << box.min.y << ", " << box.min.z << '\n';
+    std::cout << "Bounding box max: " << box.max.x << ", " << box.max.y << ", " << box.max.z << '\n';
+
+    glm::vec3 modelPosition = matrix[3];
+    glm::vec3 delta = modelPosition  - rayOrigin;
+
+    float tMin = 0.0f, tMax = 1000000.0f;
+
+    for (int i = 0; i < 3; i++) {
+        glm::vec3 axis = matrix[i];
+        float e = glm::dot(axis, delta);
+        float f = glm::dot(rayDirection, axis);
+
+        if (fabs(f) > 0.001f) {
+            float t1 = (e + box.min[i]) / f;
+            float t2 = (e + box.max[i]) / f;
+
+            if (t1 > t2) {
+                float t = t1;
+                t1 = t2;
+                t2 = t;
+            }
+
+            if (t2 < tMax)
+                tMax = t2;
+            if (t1 > tMin)
+                tMin = t1;
+
+            std::cout << "Axis: " << i << " tMin: " << tMin << " tMax: " << tMax << " t1: " << t1 << " t2: " << t2 << "\n";
+
+            if (tMin > tMax)
+                return false;
+        } else {
+            if (-e + box.min[i] > 0.0f || -e + box.max[i] < 0.0f)
+                return false;
+        }
+    }
+
+    return tMin > 0;
 }

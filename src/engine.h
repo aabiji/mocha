@@ -1,7 +1,6 @@
 #pragma once
 
 #include "camera.h"
-#include "framebuffer.h"
 #include "model.h"
 #include "pool.h"
 
@@ -31,23 +30,23 @@ public:
     void rotateCamera(bool left);
     void zoomCamera(int deltaY);
 
-    void handleMouseHover(int mouseX, int mouseY);
+    void handleClick(int mouseX, int mouseY);
 private:
     void loadModel(std::string name, std::string path, std::string base);
-    void drawModels(Shader& shader, double timeInSeconds);
 
     void initLights();
 
+    void screenPosToWorldRay(
+        float x, float y, glm::vec3& origin, glm::vec3& direction
+    );
+
     int fps;
     int sidePanelWidth;
-    glm::vec2 windowSize;
+    glm::vec2 viewport;
 
     Camera camera;
     ThreadPool pool;
-    Shader defaultShader;
-
-    Framebuffer frameBuffer;
-    Shader frameBufferShader;
+    Shader shader;
 
     std::vector<Model> models;
     std::vector<Light> lights;

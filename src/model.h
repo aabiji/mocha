@@ -1,11 +1,32 @@
 #pragma once
 
 #include <assimp/mesh.h>
+#include <glm/glm.hpp>
 
 #include "animator.h"
-#include "box.h"
 #include "shader.h"
 #include "textures.h"
+
+struct BoundingBox
+{
+    glm::vec3 min;
+    glm::vec3 max;
+
+    BoundingBox()
+    {
+        min = glm::vec3(std::numeric_limits<float>::max());
+        max = glm::vec3(std::numeric_limits<float>::min());
+    }
+
+    // Update the min and max extremes of the bounding box
+    void update(glm::vec3 v)
+    {
+        for (int i = 0; i < 3; i++) {
+            min[i] = std::min(v[i], min[i]);
+            max[i] = std::max(v[i], max[i]);
+        }
+     }
+};
 
 struct Mesh
 {
@@ -33,6 +54,8 @@ public:
     void setPosition(glm::vec3 v);
     void setSize(glm::vec3 size, bool preserveAspectRatio);
 
+    bool intersects(glm::vec3 rayOrigin, glm::vec3 rayDirection);
+
     void toggleAnimation();
     bool animationPlaying();
 
@@ -40,6 +63,7 @@ public:
     void setCurrentAnimation(int index);
     std::vector<std::string> animationNames();
 
+    std::string name;
     bool isCalled(std::string s) { return name == s; }
 private:
     void processNode(const aiScene* scene, const aiNode* node);
@@ -48,7 +72,7 @@ private:
     void getBoneWeights(aiMesh* data, Mesh& mesh);
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
-    std::string name;
+    glm::mat4 getTransformationMatrix();
 
     glm::vec3 scale;
     glm::vec3 position;
