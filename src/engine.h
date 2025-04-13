@@ -1,6 +1,7 @@
 #pragma once
 
 #include "camera.h"
+#include "framebuffer.h"
 #include "model.h"
 #include "pool.h"
 
@@ -33,20 +34,18 @@ public:
     void handleClick(int mouseX, int mouseY);
 private:
     void loadModel(std::string name, std::string path, std::string base);
-
+    void drawModels(bool isFramebuffer, double timeInSeconds);
     void initLights();
-
-    void screenPosToWorldRay(
-        float x, float y, glm::vec3& origin, glm::vec3& direction
-    );
 
     int fps;
     int sidePanelWidth;
     glm::vec2 viewport;
+    int selectedModel;
 
     Camera camera;
     ThreadPool pool;
     Shader shader;
+    Framebuffer framebuffer;
 
     std::vector<Model> models;
     std::vector<Light> lights;

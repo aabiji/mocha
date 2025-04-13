@@ -54,8 +54,6 @@ public:
     void setPosition(glm::vec3 v);
     void setSize(glm::vec3 size, bool preserveAspectRatio);
 
-    bool intersects(glm::vec3 rayOrigin, glm::vec3 rayDirection);
-
     void toggleAnimation();
     bool animationPlaying();
 
@@ -63,7 +61,7 @@ public:
     void setCurrentAnimation(int index);
     std::vector<std::string> animationNames();
 
-    std::string name;
+    std::string getName() { return name; }
     bool isCalled(std::string s) { return name == s; }
 private:
     void processNode(const aiScene* scene, const aiNode* node);
@@ -74,6 +72,7 @@ private:
 
     glm::mat4 getTransformationMatrix();
 
+    std::string name;
     glm::vec3 scale;
     glm::vec3 position;
     BoundingBox box;

@@ -1,8 +1,5 @@
 #define GLAD_GL_IMPLEMENTATION 1
-#include <glad.h>
-
 #include <imgui.h>
-
 #include "engine.h"
 #include "log.h"
 
@@ -17,15 +14,18 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
+    pool.init(3);
+    camera.init(glm::vec3(0.0), 3);
+    initLights();
+
+    framebuffer.init(viewport.x, viewport.y);
+
     shader.load(GL_VERTEX_SHADER, "../shaders/vertex.glsl");
     shader.load(GL_FRAGMENT_SHADER, "../shaders/fragment.glsl");
     shader.assemble();
     shader.use();
 
-    initLights();
-    camera.init(glm::vec3(0.0), 3);
-
-    pool.init(3);
+    selectedModel = -1;
     loadModel("floor", "../assets/cube.fbx", "");
     loadModel("player", "../assets/characters/Barbarian.fbx", "../assets/characters/");
 }
@@ -35,6 +35,7 @@ void Engine::cleanup()
     for (Model& model : models)
         model.cleanup();
     shader.cleanup();
+    framebuffer.cleanup();
     pool.terminate();
 }
 
@@ -52,20 +53,25 @@ void Engine::resizeViewport(int width, int height)
 {
     viewport.y = height;
     viewport.x = width - sidePanelWidth;
-    glViewport(sidePanelWidth, 0, viewport.x, viewport.y);
 }
 
-#include <iostream>
+// Select the model that the mouse is hovering upon
 void Engine::handleClick(int mouseX, int mouseY)
 {
-    glm::vec3 rayOrigin;
-    glm::vec3 rayDirection;
-    screenPosToWorldRay(mouseX - sidePanelWidth, mouseY, rayOrigin, rayDirection);
+    int x = mouseX - sidePanelWidth;
+    int y = viewport.y - mouseY;
+    if (x < 0 || y < 0) return; // Invalid coordinates
 
-    for (Model& model : models) {
-        if (model.intersects(rayOrigin, rayDirection))
-            std::cout << model.name << "\n";
+    float pixel[4] = {100, 100, 100, 100};
+    framebuffer.readPixel(x, y, pixel);
+    if (pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0) {
+        selectedModel = -1;
+        return; // The pixel is the same as the clear color
     }
+
+    // Map back from a range of 0 to 1 to a range of 0 to INT_MAX
+    int modelIndex = int(ceil((1.0 / pixel[0]))) - 1;
+    selectedModel = modelIndex;
 }
 
 void Engine::loadModel(std::string name, std::string path, std::string base)
@@ -103,41 +109,6 @@ void Engine::initLights()
     shader.updateBuffer(lightsBuffer, sizeof(lights), &lights);
 }
 
-// Convert a coordinate to a ray in world space with an origin and direction
-// (x, y) is an on screen position, where (0, 0) is at the top left
-void Engine::screenPosToWorldRay(
-    float x, float y, glm::vec3& origin, glm::vec3& direction
-)
-{
-    // Get the normalized device coordinates on the near and far plane
-    glm::vec4 nearPos = glm::vec4(
-        (2.0 * x) / viewport.x - 1.0f,
-        1.0f - (2.0 * y) / viewport.y,
-        -1.0, 1.0
-    );
-    glm::vec4 farPos = glm::vec4(
-        (2.0 * x) / viewport.x - 1.0f,
-        1.0f - (2.0 * y) / viewport.y,
-        0.0, 1.0
-    );
-
-    // This matrix converts a position from normalized device
-    // coordinate space into view space and from view space
-    // into world space
-    glm::mat4 inverse = glm::inverse(
-        camera.getProjection(viewport.x, viewport.y) * camera.getView()
-    );
-
-    // Compute the ray start and end positions in world space
-    glm::vec4 rayStart = inverse * nearPos;
-    glm::vec4 rayEnd = inverse * farPos;
-    rayStart /= rayStart.w;
-    rayEnd /= rayEnd.w;
-
-    origin = rayStart;
-    direction = glm::normalize(rayEnd - rayStart);
-}
-
 void Engine::drawGUI()
 {
     ImGui::NewFrame();
@@ -151,16 +122,13 @@ void Engine::drawGUI()
     ImGui::SetWindowSize(ImVec2(sidePanelWidth, viewport.y));
 
     ImGui::Text("%s", ("FPS: " + std::to_string(fps)).c_str());
-
-    auto search = [](Model& m) { return m.isCalled("player"); };
-    auto iterator = std::find_if(models.begin(), models.end(), search);
-    if (iterator == models.end()) { // Model not found
+    if (selectedModel == -1) {
         ImGui::End();
         ImGui::Render();
         return;
     }
 
-    Model& model = *iterator;
+    Model& model = models[selectedModel];
     auto animations = model.animationNames();
     size_t current = model.getCurrentAnimation();
     if (animations.size() == 0) { // No animations to play
@@ -170,6 +138,8 @@ void Engine::drawGUI()
     }
 
     ImGui::Separator();
+    ImGui::Text(model.getName().c_str());
+    ImGui::SameLine();
     if (ImGui::Button(model.animationPlaying() ? "Pause" : "Play"))
         model.toggleAnimation();
 
@@ -188,19 +158,27 @@ void Engine::drawGUI()
     ImGui::Render();
 }
 
-
-void Engine::draw(float timeInSeconds)
+void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
 {
+    if (isFramebuffer)
+        framebuffer.bind();
+    else
+        framebuffer.unbind();
+
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glViewport(isFramebuffer ? 0 :  sidePanelWidth, 0, viewport.x, viewport.y);
+
     shader.use();
     shader.set<glm::mat4>("view", camera.getView());
     shader.set<glm::mat4>(
         "projection", camera.getProjection(viewport.x, viewport.y));
     shader.set<glm::vec3>("viewPosition", camera.getPosition());
+    shader.set<int>("isFramebuffer", isFramebuffer);
 
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    for (Model& model : models) {
+    for (unsigned int i = 0; i < models.size(); i++) {
+        Model& model = models[i];
         if (model.isCalled("floor")) {
             model.setSize(glm::vec3(10.0, 0.5, 10.0), false);
             model.setPosition(glm::vec3(0.0, -0.5, 0.0));
@@ -209,6 +187,13 @@ void Engine::draw(float timeInSeconds)
             model.setSize(glm::vec3(0.0, 1.0, 0.0), true);
             model.setPosition(glm::vec3(0.0, 0.0, 0.0));
         }
+        shader.set<unsigned int>("modelId", i + 1);
         model.draw(shader, timeInSeconds);
     }
+}
+
+void Engine::draw(float timeInSeconds)
+{
+    drawModels(true, timeInSeconds);
+    drawModels(false, timeInSeconds);
 }

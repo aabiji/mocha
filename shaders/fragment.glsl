@@ -20,6 +20,9 @@ in FragmentInfo
     vec3 lightPos[NUM_LIGHTS]; // Light positions in tangent space
 } fragIn;
 
+uniform bool isFramebuffer;
+uniform uint modelId;
+
 out vec4 color;
 
 // Calculate phong lighting (ambiant, diffuse,
@@ -58,6 +61,13 @@ vec3 calculateLighting(Light light, vec3 lightPosition)
 
 void main()
 {
+    if (isFramebuffer) {
+        // Map the modelId to a range of 0 to 1
+        float n = 1.0 / float(modelId);
+        color = vec4(n, n, n, 1.0);
+        return;
+    }
+
     vec3 result = vec3(0.0, 0.0, 0.0);
     for (int i = 0; i < NUM_LIGHTS; i++) {
         result += calculateLighting(lights[i], fragIn.lightPos[i]);

@@ -14,7 +14,6 @@
 /*
 TODO:
 - check if the mouse is hovering over a model
-- Show side info based on the currently selected model
 - upload lights and transformation matrices in a shader storage object
 - improve the lighting (white shiny floor, lab like atmosphere)
 - start researching human pose estimation
