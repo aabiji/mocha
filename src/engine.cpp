@@ -1,7 +1,15 @@
 #define GLAD_GL_IMPLEMENTATION 1
+#include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include "engine.h"
 #include "log.h"
+
+struct Light
+{
+    alignas(16) glm::vec3 color;
+    alignas(16) glm::vec3 position;
+    float c, l, q;
+};
 
 void Engine::init(int width, int height, int panelSize)
 {
@@ -16,7 +24,6 @@ void Engine::init(int width, int height, int panelSize)
 
     pool.init(3);
     camera.init(glm::vec3(0.0), 3);
-    initLights();
 
     framebuffer.init(viewport.x, viewport.y);
 
@@ -24,6 +31,9 @@ void Engine::init(int width, int height, int panelSize)
     shader.load(GL_FRAGMENT_SHADER, "../shaders/fragment.glsl");
     shader.assemble();
     shader.use();
+
+    shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
+    initLights();
 
     selectedModel = -1;
     loadModel("floor", "../assets/cube.fbx", "");
@@ -78,7 +88,7 @@ void Engine::loadModel(std::string name, std::string path, std::string base)
 {
     pool.dispatch([&, name, path, base] {
         try {
-            Model model(name, path, base);
+            Model model(shader, name, path, base);
             models.push_back(model);
         } catch (std::string msg) {
             log(ERROR, msg);
@@ -105,8 +115,8 @@ void Engine::initLights()
         };
     }
 
-    unsigned int lightsBuffer = shader.createBuffer(1, sizeof(lights));
-    shader.updateBuffer(lightsBuffer, sizeof(lights), &lights);
+    shader.createBuffer("lights", 0, sizeof(lights));
+    shader.writeBuffer("lights", &lights, 0, sizeof(lights));
 }
 
 void Engine::drawGUI()
@@ -171,11 +181,9 @@ void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
     glViewport(isFramebuffer ? 0 :  sidePanelWidth, 0, viewport.x, viewport.y);
 
     shader.use();
-    shader.set<glm::mat4>("view", camera.getView());
-    shader.set<glm::mat4>(
-        "projection", camera.getProjection(viewport.x, viewport.y));
-    shader.set<glm::vec3>("viewPosition", camera.getPosition());
     shader.set<int>("isFramebuffer", isFramebuffer);
+    MVPTransforms transforms = camera.getMVPTransforms(viewport.x, viewport.y);
+    shader.writeBuffer("mvp", &transforms, 0, sizeof(MVPTransforms));
 
     for (unsigned int i = 0; i < models.size(); i++) {
         Model& model = models[i];

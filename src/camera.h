@@ -3,6 +3,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+struct MVPTransforms
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+    alignas(16) glm::vec3 viewPosition;
+};
+
 class Camera
 {
 public:
@@ -15,19 +22,18 @@ public:
         updatePosition();
     }
 
-    glm::vec3 getPosition() { return position; }
-
-    // Get the view matrix
-    glm::mat4 getView()
+    MVPTransforms getMVPTransforms(double w, double h)
     {
+        MVPTransforms values;
+
         glm::vec3 up = glm::vec3(0, 1, 0);
-        return glm::lookAt(position, target, up);
-    }
+        values.view = glm::lookAt(position, target, up);
 
-    // Get the projection matrix
-    glm::mat4 getProjection(double w, double h)
-    {
-        return glm::perspective(0.785398, w / h, 0.1, 100.0); // 45 degree field of view
+        double fov = 0.785398; // 45 degres in radians
+        values.projection = glm::perspective(fov, w / h, 0.1, 100.0);
+
+        values.viewPosition = position;
+        return values;
     }
 
     // Zoom in (direction = 1) and out (direction = -1)

@@ -13,13 +13,10 @@
 
 /*
 TODO:
-- check if the mouse is hovering over a model
-- upload lights and transformation matrices in a shader storage object
-- improve the lighting (white shiny floor, lab like atmosphere)
+- Create a skybox using hdris
+    - Load exr images with tinyexr
+- refactor, refactor, refactor
 - start researching human pose estimation
-- We've got hdri assets from: https://polyhaven.com/
-  Now just need to figure out how to actually use them
-  More high quality 3d models can be found here: https://polyhaven.com/models
 */
 
 static void debugCallback(

@@ -45,6 +45,8 @@ public:
     // time in seconds and return a pointer to the current animation.
     Animation* run(double seconds);
 
+    int getNumBoneTransforms();
+
     bool playing;
     size_t currentAnimation;
 private:

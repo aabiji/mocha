@@ -2,9 +2,17 @@
 #include <assimp/postprocess.h>
 
 #include <glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "convert.h"
 #include "model.h"
+
+struct ModelTransforms
+{
+    glm::mat4 model;
+    glm::mat4 meshTransform;
+    glm::mat4 boneTransforms[];
+};
 
 void Mesh::init()
 {
@@ -52,13 +60,13 @@ void Mesh::draw(Shader& shader)
     int index = 0;
     for (auto& [sampler, texture] : textures) {
         glActiveTexture(GL_TEXTURE0 + index);
-        shader.set<int>(("material." + sampler).c_str(), index);
+        shader.set<int>("material." + sampler, index);
         glBindTexture(GL_TEXTURE_2D, texture.id);
         index++;
     }
 
     // Draw
-    shader.set<int>("hasNormalMap", textures.count("normal") > 0);
+    shader.set<int>("material.hasNormal", textures.count("normal") > 0);
     glDrawElements(GL_TRIANGLES, indexes.size(), GL_UNSIGNED_INT, 0);
 }
 
@@ -72,7 +80,10 @@ void Mesh::cleanup()
     }
 }
 
-Model::Model(std::string id, std::string path, std::string textureBasePath)
+Model::Model(
+    Shader& shader, std::string id,
+    std::string path, std::string textureBasePath
+)
 {
     name = id;
     scale = glm::vec3(1.0);
@@ -80,7 +91,8 @@ Model::Model(std::string id, std::string path, std::string textureBasePath)
 
     Assimp::Importer importer;
     unsigned int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes;
+                         aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
+                         aiProcess_GenBoundingBoxes;
     const aiScene* scene = importer.ReadFile(path, flags);
     if (scene == nullptr)
         throw std::string(importer.GetErrorString());
@@ -92,6 +104,10 @@ Model::Model(std::string id, std::string path, std::string textureBasePath)
     animator.load(scene);
 
     processNode(scene, scene->mRootNode);
+
+    int maxPossibleSize =
+        sizeof(glm::mat4) * (animator.getNumBoneTransforms() + 2);
+    shader.createBuffer(id, 1, maxPossibleSize);
 }
 
 void Model::cleanup()
@@ -227,7 +243,10 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
 
 void Model::draw(Shader& shader, double timeInSeconds)
 {
-    shader.set<glm::mat4>("model", getTransformationMatrix());
+    shader.bindBuffer(name);
+
+    glm::mat4 t = getTransformationMatrix();
+    shader.writeBuffer(name, glm::value_ptr(t), offsetof(ModelTransforms, model), sizeof(t));
 
     Animation* animation = animator.run(timeInSeconds);
 
@@ -236,12 +255,16 @@ void Model::draw(Shader& shader, double timeInSeconds)
 
         if (animation != nullptr) {
             for (size_t j = 0; j < animation->boneTransforms.size(); j++) {
-                std::string name = "boneTransforms[" + std::to_string(j) + "]";
-                shader.set<glm::mat4>(name.c_str(), animation->boneTransforms[j]);
+                glm::mat4& t = animation->boneTransforms[j];
+                int offset = offsetof(ModelTransforms, boneTransforms) + j * sizeof(glm::mat4);
+                shader.writeBuffer(name, glm::value_ptr(t), offset, sizeof(t));
             }
-            shader.set<glm::mat4>("meshTransform", animation->meshTransforms[i]);
+
+            glm::mat4& t = animation->meshTransforms[i];
+            shader.writeBuffer(name, glm::value_ptr(t), offsetof(ModelTransforms, meshTransform), sizeof(t));
         } else {
-            shader.set<glm::mat4>("meshTransform", glm::mat4(1.0));
+            glm::mat4 t = glm::mat4(1.0);
+            shader.writeBuffer(name, glm::value_ptr(t), offsetof(ModelTransforms, meshTransform), sizeof(t));
         }
 
         mesh.draw(shader);

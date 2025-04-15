@@ -44,9 +44,6 @@ std::string preprocess(std::string path, std::string& basePath)
     return source;
 }
 
-void Shader::cleanup() { glDeleteProgram(program); }
-void Shader::use() { glUseProgram(program); }
-
 void Shader::load(int type, const char* path)
 {
     std::string base = std::filesystem::path(path).parent_path() / "";
@@ -66,11 +63,20 @@ void Shader::load(int type, const char* path)
     }
 
     if (type == GL_VERTEX_SHADER)
-        vertexShader = shader;
+    vertexShader = shader;
     if (type == GL_FRAGMENT_SHADER)
-        fragmentShader = shader;
+    fragmentShader = shader;
     if (type == GL_GEOMETRY_SHADER)
-        geometryShader = shader;
+    geometryShader = shader;
+}
+
+void Shader::use() { glUseProgram(program); }
+
+void Shader::cleanup()
+{
+    for (auto& pair : buffers)
+        deleteBuffer(pair.first);
+    glDeleteProgram(program);
 }
 
 void Shader::assemble()
@@ -103,15 +109,15 @@ void Shader::assemble()
     }
 }
 
-template void Shader::set<int>(const char* name, int value);
-template void Shader::set<unsigned int>(const char* name, unsigned int value);
-template void Shader::set<glm::mat4>(const char* name, glm::mat4 value);
-template void Shader::set<glm::vec3>(const char* name, glm::vec3 value);
+template void Shader::set<int>(std::string name, int value);
+template void Shader::set<glm::mat4>(std::string name, glm::mat4 value);
+template void Shader::set<glm::vec3>(std::string name, glm::vec3 value);
+template void Shader::set<unsigned int>(std::string name, unsigned int value);
 
 template <typename T>
-void Shader::set(const char* name, T value)
+void Shader::set(std::string name, T value)
 {
-    int address = glGetUniformLocation(program, name);
+    int address = glGetUniformLocation(program, name.c_str());
     if constexpr (std::is_same<T, glm::vec3>::value)
         glUniform3fv(address, 1, glm::value_ptr(value));
     if constexpr (std::is_same<T, glm::mat4>::value)
@@ -122,20 +128,44 @@ void Shader::set(const char* name, T value)
         glUniform1ui(address, value);
 }
 
-unsigned int Shader::createBuffer(int port, int dataSize)
+void Shader::createBuffer(std::string name, int binding, int allocationSize)
 {
-    unsigned int id;
-    glGenBuffers(1, &id);
-    glBindBuffer(GL_UNIFORM_BUFFER, id);
-    glBufferData(GL_UNIFORM_BUFFER, dataSize, NULL, GL_STATIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, port, id);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    return id;
+    StorageBuffer b;
+    b.binding = binding;
+
+    glGenBuffers(1, &b.id);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, allocationSize, nullptr, GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, b.id);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    buffers.insert({ name, b });
 }
 
-void Shader::updateBuffer(unsigned int id, int dataSize, void* data)
+void Shader::bindBuffer(std::string name)
 {
-    glBindBuffer(GL_UNIFORM_BUFFER, id);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, dataSize, data);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    if (buffers.count(name) == 0)
+        throw name + " not found";
+    StorageBuffer& b = buffers[name];
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, b.binding, b.id);
+}
+
+void Shader::deleteBuffer(std::string name)
+{
+    if (buffers.count(name) == 0)
+        throw name + " not found";
+    StorageBuffer& b = buffers[name];
+    glDeleteBuffers(1, &b.id);
+}
+
+void Shader::writeBuffer(std::string name, void* data, int offset, int size)
+{
+    if (buffers.count(name) == 0)
+        throw name + " not found";
+    StorageBuffer& b = buffers[name];
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }

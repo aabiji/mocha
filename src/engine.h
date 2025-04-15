@@ -5,15 +5,6 @@
 #include "model.h"
 #include "pool.h"
 
-struct Light
-{
-    // Vectors in the std140 format need to be multiples of 4
-    alignas(16) glm::vec3 color;
-    alignas(16) glm::vec3 position;
-    // Constant, linear, quadratic (attenuation value) (see shaders/shared.glsl)
-    float c, l, q;
-};
-
 class Engine
 {
 public:
@@ -46,7 +37,5 @@ private:
     ThreadPool pool;
     Shader shader;
     Framebuffer framebuffer;
-
     std::vector<Model> models;
-    std::vector<Light> lights;
 };

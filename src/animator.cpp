@@ -109,3 +109,13 @@ Animation* Animator::run(double seconds)
     a->computeBoneTransform(bones, rootNode, glm::mat4(1.0), time, playing);
     return a;
 }
+
+int Animator::getNumBoneTransforms()
+{
+    unsigned int max = 0;
+    for (Animation& a : animations) {
+        if (a.boneTransforms.size() > max)
+            max = a.boneTransforms.size();
+    }
+    return max;
+}
