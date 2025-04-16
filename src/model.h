@@ -70,8 +70,6 @@ private:
     void getBoneWeights(aiMesh* data, Mesh& mesh);
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
-    glm::mat4 getTransformationMatrix();
-
     std::string name;
     glm::vec3 scale;
     glm::vec3 position;

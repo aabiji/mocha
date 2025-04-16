@@ -122,21 +122,9 @@ bool Model::animationPlaying() { return animator.playing; }
 
 std::vector<std::string> Model::animationNames() { return animator.animationNames(); }
 
-glm::mat4 Model::getTransformationMatrix()
-{
-    glm::mat4 transform = glm::mat4(1.0);
-    transform = glm::translate(transform, position);
-    transform = glm::scale(transform, scale);
-    return transform;
-}
-
 void Model::setSize(glm::vec3 size, bool preserveAspectRatio)
 {
-    // TODO: use worldSpaceBoundingBox() instead
-    glm::mat4 mat = getTransformationMatrix();
-    glm::vec3 scaledBoxMin = mat * glm::vec4(box.min, 1.0);
-    glm::vec3 scaledBoxMax = mat * glm::vec4(box.max, 1.0);
-    glm::vec3 boxSize = scaledBoxMax - scaledBoxMin;
+    glm::vec3 boxSize = box.max * scale - box.min * scale;
 
     if (FLOAT_EQUAL(boxSize.x, size.x) ||
         FLOAT_EQUAL(boxSize.y, size.y) ||
@@ -244,8 +232,11 @@ void Model::draw(Shader& shader, double timeInSeconds)
     }
     shader.bindBuffer(name);
 
-    glm::mat4 t = getTransformationMatrix();
-    shader.writeBuffer(name, glm::value_ptr(t), offsetof(ModelTransforms, model), sizeof(t));
+    // Set the value of the model matrix
+    glm::mat4 transform = glm::mat4(1.0);
+    transform = glm::translate(transform, position);
+    transform = glm::scale(transform, scale);
+    shader.writeBuffer(name, glm::value_ptr(transform), offsetof(ModelTransforms, model), sizeof(transform));
 
     Animation* animation = animator.run(timeInSeconds);
 

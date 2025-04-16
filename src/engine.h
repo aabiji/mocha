@@ -4,6 +4,7 @@
 #include "framebuffer.h"
 #include "model.h"
 #include "pool.h"
+#include "skybox.h"
 
 class Engine
 {
@@ -38,4 +39,5 @@ private:
     Shader shader;
     Framebuffer framebuffer;
     std::vector<Model> models;
+    Skybox skybox;
 };

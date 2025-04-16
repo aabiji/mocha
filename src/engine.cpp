@@ -22,22 +22,28 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
-    pool.init(3);
-    camera.init(glm::vec3(0.0), 3);
+    std::vector<std::string> skyboxTextures = { // ORDER MATTERS!
+        "../assets/skybox/right.jpg", "../assets/skybox/left.jpg",
+        "../assets/skybox/top.jpg", "../assets/skybox/bottom.jpg",
+        "../assets/skybox/front.jpg", "../assets/skybox/back.jpg"
+    };
+    skybox.init(skyboxTextures);
 
     framebuffer.init(viewport.x, viewport.y);
+    camera.init(glm::vec3(0.0), 3, viewport.x, viewport.y);
 
-    shader.load(GL_VERTEX_SHADER, "../shaders/vertex.glsl");
-    shader.load(GL_FRAGMENT_SHADER, "../shaders/fragment.glsl");
+    shader.load(GL_VERTEX_SHADER, "../shaders/default_vertex.glsl");
+    shader.load(GL_FRAGMENT_SHADER, "../shaders/default_fragment.glsl");
     shader.assemble();
     shader.use();
 
     initLights();
     shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
 
-    selectedModel = -1;
+    pool.init(3);
     loadModel("floor", "../assets/cube.fbx", "");
     loadModel("player", "../assets/characters/Barbarian.fbx", "../assets/characters/");
+    selectedModel = -1;
 }
 
 void Engine::cleanup()
@@ -182,7 +188,7 @@ void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
 
     shader.use();
     shader.set<int>("isFramebuffer", isFramebuffer);
-    MVPTransforms transforms = camera.getMVPTransforms(viewport.x, viewport.y);
+    MVPTransforms transforms = camera.getMVPTransforms();
     shader.writeBuffer("mvp", &transforms, 0, sizeof(MVPTransforms));
 
     for (unsigned int i = 0; i < models.size(); i++) {
@@ -204,4 +210,5 @@ void Engine::draw(float timeInSeconds)
 {
     drawModels(true, timeInSeconds);
     drawModels(false, timeInSeconds);
+    skybox.draw(camera.getProjection(), camera.getViewWithoutTranslation());
 }

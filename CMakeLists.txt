@@ -27,6 +27,7 @@ add_executable(
     src/main.cpp
     src/model.cpp
     src/shader.cpp
+    src/skybox.cpp
     src/textures.cpp
 
     # Imgui
