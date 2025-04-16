@@ -130,23 +130,34 @@ void Shader::set(std::string name, T value)
 
 void Shader::createBuffer(std::string name, int binding, int allocationSize)
 {
+    if (allocationSize <= 0)
+        throw "Invalid allocation size";
+
+    int maxBindings = 0;
+    glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &maxBindings);
+    if (binding < 0 || binding >= maxBindings)
+        throw "Invalid binding";
+
     StorageBuffer b;
     b.binding = binding;
 
     glGenBuffers(1, &b.id);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, allocationSize, nullptr, GL_DYNAMIC_COPY);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, allocationSize, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, b.id);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     buffers.insert({ name, b });
 }
 
+bool Shader::haveBuffer(std::string name) { return buffers.count(name) > 0; }
+
 void Shader::bindBuffer(std::string name)
 {
     if (buffers.count(name) == 0)
         throw name + " not found";
     StorageBuffer& b = buffers[name];
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, b.binding, b.id);
 }
@@ -163,8 +174,10 @@ void Shader::writeBuffer(std::string name, void* data, int offset, int size)
 {
     if (buffers.count(name) == 0)
         throw name + " not found";
-    StorageBuffer& b = buffers[name];
+    if (data == nullptr || size == 0)
+        throw "Invalid data";
 
+    StorageBuffer& b = buffers[name];
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, b.id);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

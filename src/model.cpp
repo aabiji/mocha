@@ -80,10 +80,7 @@ void Mesh::cleanup()
     }
 }
 
-Model::Model(
-    Shader& shader, std::string id,
-    std::string path, std::string textureBasePath
-)
+Model::Model(std::string id, std::string path, std::string textureBasePath)
 {
     name = id;
     scale = glm::vec3(1.0);
@@ -104,10 +101,6 @@ Model::Model(
     animator.load(scene);
 
     processNode(scene, scene->mRootNode);
-
-    int maxPossibleSize =
-        sizeof(glm::mat4) * (animator.getNumBoneTransforms() + 2);
-    shader.createBuffer(id, 1, maxPossibleSize);
 }
 
 void Model::cleanup()
@@ -243,6 +236,12 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
 
 void Model::draw(Shader& shader, double timeInSeconds)
 {
+    // Initial the shader storage buffer object
+    if (!shader.haveBuffer(name)) {
+        int maxPossibleSize =
+            sizeof(glm::mat4) * (animator.getNumBoneTransforms() + 2);
+        shader.createBuffer(name, 1, maxPossibleSize);
+    }
     shader.bindBuffer(name);
 
     glm::mat4 t = getTransformationMatrix();

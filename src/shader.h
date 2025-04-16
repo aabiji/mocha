@@ -29,6 +29,7 @@ public:
     void writeBuffer(std::string name, void* data, int offset, int size);
     void bindBuffer(std::string name);
     void deleteBuffer(std::string name);
+    bool haveBuffer(std::string name);
 private:
     // Ids of the different shaders
     int vertexShader = -1;

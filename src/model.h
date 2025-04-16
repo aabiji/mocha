@@ -47,8 +47,7 @@ struct Mesh
 class Model
 {
 public:
-    Model(Shader& shader, std::string id,
-          std::string path, std::string textureBasePath);
+    Model(std::string id, std::string path, std::string textureBasePath);
     void draw(Shader& shader, double timeInSeconds);
     void cleanup();
 

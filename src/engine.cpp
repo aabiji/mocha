@@ -32,8 +32,8 @@ void Engine::init(int width, int height, int panelSize)
     shader.assemble();
     shader.use();
 
-    shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
     initLights();
+    shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
 
     selectedModel = -1;
     loadModel("floor", "../assets/cube.fbx", "");
@@ -88,7 +88,7 @@ void Engine::loadModel(std::string name, std::string path, std::string base)
 {
     pool.dispatch([&, name, path, base] {
         try {
-            Model model(shader, name, path, base);
+            Model model(name, path, base);
             models.push_back(model);
         } catch (std::string msg) {
             log(ERROR, msg);
