@@ -3,7 +3,7 @@
 Motion capture app. You record a video of someone moving
 and that motion is mapped to a 3d animation of a human model
 that can be replayed. For example, you could map the choreography
-of dancers in kpop dance videos into 3d animations.
+of [dancers](https://www.youtube.com/watch?v=iEyOhEiA5kQ).
 
 Could extend this concept to develop a full fledged game where you earn points doing exercise
 

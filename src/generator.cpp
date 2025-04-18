@@ -4,10 +4,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../include/stb_image_write.h"
 
-#include <algorithm>
 #include <cmath>
 #include <vector>
-#include <iostream>
 
 struct vec3 { float x, y, z; };
 
@@ -31,14 +29,6 @@ int main()
     // stbi_is_hdr(path);
     int hdrWidth, hdrHeight, channels;
     float* pixels = stbi_loadf(path, &hdrWidth, &hdrHeight, &channels, 0);
-
-    // 4 bytes * 3 = 12 bytes per pixel
-    // 512 * 512 * 12 = 3145728 bytes = 3.145728 MB per image
-    // 3.145728 * 6 = 18.874368 MB, so about 19 MB allocation for the cubemap
-    //
-    // 4096 * 2048 * 3 = 25165824 bytes = 25 MB allocation for the hdr image
-    //
-    // 25 + 19 = 44 MB minimum allocation
 
     for (int face = 0; face < 6; face++) {
         float* newImage = new float[cubemapSize * cubemapSize * channels];
@@ -72,20 +62,34 @@ int main()
                 float hdrX = (azimuth / 2 / M_PI) * hdrWidth;
                 float hdrY = (elevation   / M_PI) * hdrHeight;
 
-                // TODO: bilinear interpolation -- how are we going
-                //       to get the 4 corners from the hdrX and hdrY???
-                // the fractional part of hdrX is tx, the fractional part of hdrY is ty
-                // the left is the interger part of hdrX, the right is the integer part of hdrX + 1 (same idea for y)
-                // edge case where the left is on right edge or bottom is on bottom edge
-                // then plug into this equation: https://uploads-cdn.omnicalculator.com/images/bilin_form4.png?width=425&enlarge=0&format=webp
+                // The fractional part of the hdr x and y are the factors
+                // The integer part is the actual hdr x and y
+                float leftX, rightX, topY, bottomY;
+                float factorX = modf(hdrX, &leftX);
+                float factorY = modf(hdrY, &topY);
 
-                // Write the corresponding pixel unto the cube face
-                int _x = std::clamp(int(hdrX), 0, hdrWidth  - 1);
-                int _y = std::clamp(int(hdrY), 0, hdrHeight - 1);
+                // The right and top wrap around if they're out of bounds
+                rightX  = leftX == hdrWidth - 1 ? 0 : leftX + 1;
+                bottomY = topY == hdrHeight - 1 ? 0 : topY + 1;
+
+                // Determine the weights of the 4 surrounding pixels
+                // The equation comes from here: https://uploads-cdn.omnicalculator.com/images/bilin_form4.png?width=425&enlarge=0&format=webp
+                // Since the distance between the 4 points is always 1, the equation can be simplified down
+                float w1 = (1.0 - factorX) * (1.0 - factorY);
+                float w2 = factorX * (1.0 - factorY);
+                float w3 = (1.0 - factorX) * factorY;
+                float w4 = factorX * factorY;
+
+                // Write the interpolated pixel unto the cube face
                 for (int c = 0; c < channels; c++) {
+                    // Get the indexes for the 4 weights
+                    int w1index = leftX  * channels + hdrWidth * bottomY * channels + c;
+                    int w2index = rightX * channels + hdrWidth * bottomY * channels + c;
+                    int w3index = leftX  * channels + hdrWidth * topY    * channels + c;
+                    int w4index = rightX * channels + hdrWidth * topY    * channels + c;
+
                     int imgIndex =   x * channels + cubemapSize * y * channels + c;
-                    int hdrIndex =  _x * channels + hdrWidth *   _y * channels + c;
-                    newImage[imgIndex] = pixels[hdrIndex];
+                    newImage[imgIndex] = pixels[w1index] * w1 + pixels[w2index] * w2 + pixels[w3index] * w3 + pixels[w4index] * w4;
                 }
             }
         }
