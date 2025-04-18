@@ -6,10 +6,8 @@
 class Skybox
 {
 public:
+    void init(const char* hdrImagePath, std::string outputFolder);
     void cleanup();
-    void init(std::vector<std::string> texturePaths);
-    void draw(glm::mat4 projection, glm::mat4 viewWithoutTranslation);
 private:
     Shader shader;
-    unsigned int vao, vbo, textureId;
 };

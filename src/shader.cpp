@@ -66,8 +66,8 @@ void Shader::load(int type, const char* path)
         vertexShader = shader;
     if (type == GL_FRAGMENT_SHADER)
         fragmentShader = shader;
-    if (type == GL_GEOMETRY_SHADER)
-        geometryShader = shader;
+    if (type == GL_COMPUTE_SHADER)
+        computeShader = shader;
 }
 
 void Shader::use() { glUseProgram(program); }
@@ -93,9 +93,9 @@ void Shader::assemble()
         glDeleteShader(fragmentShader);
     }
 
-    if (geometryShader != -1) {
-        glAttachShader(program, geometryShader);
-        glDeleteShader(geometryShader);
+    if (computeShader != -1) {
+        glAttachShader(program, computeShader);
+        glDeleteShader(computeShader);
     }
 
     glLinkProgram(program);

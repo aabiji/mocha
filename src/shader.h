@@ -34,7 +34,7 @@ private:
     // Ids of the different shaders
     int vertexShader = -1;
     int fragmentShader = -1;
-    int geometryShader = -1;
+    int computeShader = -1;
     int program = -1;
 
     // Map shader storage objects to their given names
