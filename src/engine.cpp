@@ -22,10 +22,20 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
+    /*
     std::vector<std::string> skyboxTextures = { // ORDER MATTERS!
         "../assets/skybox/right.jpg", "../assets/skybox/left.jpg",
         "../assets/skybox/top.jpg", "../assets/skybox/bottom.jpg",
         "../assets/skybox/front.jpg", "../assets/skybox/back.jpg"
+    };
+    */
+    std::vector<std::string> skyboxTextures = {
+        "../assets/hdr/brown_photostudio_01_4k.hdr",
+        "../assets/hdr/brown_photostudio_01_4k.hdr",
+        "../assets/hdr/brown_photostudio_01_4k.hdr",
+        "../assets/hdr/brown_photostudio_01_4k.hdr",
+        "../assets/hdr/brown_photostudio_01_4k.hdr",
+        "../assets/hdr/brown_photostudio_01_4k.hdr"
     };
     skybox.init(skyboxTextures);
 

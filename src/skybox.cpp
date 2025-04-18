@@ -1,9 +1,30 @@
 #include <glad.h>
 #include <stb_image.h>
 
+#include <iostream>
+
 #include "skybox.h"
 
-// TODO: load from a 3d model and actually have an EBO
+// TODO:
+// - Create a C++ script to convert the
+/*
+for each cube face, for each y and for each x:
+    - Get the direction vector that'll point to the (x, y) on the specific face of the cube
+    - Derive spherical coordinates from the direction vector
+    - Convert the spherical coordinates into (x, y) coordinates on the HDR image
+    - Write the binearly interpolated value as the pixel value
+*/
+//   equirectangular HDR images into the 6 cubemap faces on the CPU 
+// - Research compute shaders in order to port the script to the GPU
+// - Reduce the amount of skyboxVertices and add an EBO
+// - Load each image using Texture(), instead of calling init(),
+//   define a CubeMap class that handles the cubemap initialization
+// - Change the texture formats depending on whether the texture is HDR
+//   and if it is, apply gamma correction in the fragment shader
+// - Environmental mapping
+// - Refactor, refactor, refactor
+// - Done the engine, start researching pose estimation!
+
 const float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,
      1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
@@ -52,6 +73,7 @@ void Skybox::init(std::vector<std::string> texturePaths)
         std::string path = texturePaths[i];
         int width, height, channels;
         unsigned char* pixels = stbi_load(texturePaths[i].c_str(), &width, &height, &channels, 0);
+        std::cout << "Width: " << width << " Height: " << height << "\n";
         if (pixels == nullptr)
             throw "Couldn't read " + texturePaths[i];
         int format = channels == 1 ? GL_RED : channels == 4 ? GL_RGBA : GL_RGB;

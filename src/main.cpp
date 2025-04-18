@@ -11,14 +11,6 @@
 #include "engine.h"
 #include "log.h"
 
-/*
-TODO:
-- Create a skybox using hdris
-    - Load exr images with tinyexr
-- refactor, refactor, refactor
-- start researching human pose estimation
-*/
-
 static void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)

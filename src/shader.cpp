@@ -63,11 +63,11 @@ void Shader::load(int type, const char* path)
     }
 
     if (type == GL_VERTEX_SHADER)
-    vertexShader = shader;
+        vertexShader = shader;
     if (type == GL_FRAGMENT_SHADER)
-    fragmentShader = shader;
+        fragmentShader = shader;
     if (type == GL_GEOMETRY_SHADER)
-    geometryShader = shader;
+        geometryShader = shader;
 }
 
 void Shader::use() { glUseProgram(program); }
