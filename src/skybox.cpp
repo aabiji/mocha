@@ -27,11 +27,8 @@ bool cubemapFilesExists(std::string base)
 // if there aren't any, create the cubemap images from the HDR image
 void Skybox::init(const char* hdrImagePath, std::string outputFolder)
 {
-    (void)hdrImagePath;
-    /*
     if (cubemapFilesExists(outputFolder))
         throw "TODO!";
-    */
 
     if (!stbi_is_hdr(hdrImagePath))
         throw "The image must be an HDR image";
@@ -41,15 +38,18 @@ void Skybox::init(const char* hdrImagePath, std::string outputFolder)
     shader.assemble();
     shader.use();
 
-    // Load the HDR image into the shader storage buffer object
+    // Load the HDR image as the input image2d
     int w, h, channels;
     float* pixels = stbi_loadf(hdrImagePath, &w, &h, &channels, 0);
     if (pixels == nullptr)
         throw std::string("Couldn't read ") + hdrImagePath;
-    int numBytes = w * h * channels;
-    shader.createBuffer("hdrImage", 3, numBytes);
-    shader.writeBuffer("hdrImage", pixels, 0, numBytes);
-    free(pixels);
+
+    unsigned int hdrTexture;
+    glGenTextures(1, &hdrTexture);
+    glBindTexture(GL_TEXTURE_2D, hdrTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, w, h, 0, GL_RGB, GL_FLOAT, pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindImageTexture(3, hdrTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     // Setup the cube faces texture array
     int cubemapSize = 512, numFaces = 6;
@@ -78,7 +78,11 @@ void Skybox::init(const char* hdrImagePath, std::string outputFolder)
         int result = stbi_write_hdr(path.c_str(), cubemapSize, cubemapSize, channels, p);
         if (result == 0) throw "Couldn't write " + path;
     }
+
+    free(pixels);
     free(textureArrayPixels);
+    glDeleteTextures(1, &hdrTexture);
+    glDeleteTextures(1, &textureArray);
 }
 
 void Skybox::cleanup()
