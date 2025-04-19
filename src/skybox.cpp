@@ -1,5 +1,4 @@
 #include <filesystem>
-#include <iostream>
 
 #include <glad.h>
 
@@ -29,14 +28,16 @@ bool cubemapFilesExists(std::string base)
 void Skybox::init(const char* hdrImagePath, std::string outputFolder)
 {
     (void)hdrImagePath;
+    /*
     if (cubemapFilesExists(outputFolder))
         throw "TODO!";
+    */
 
     if (!stbi_is_hdr(hdrImagePath))
         throw "The image must be an HDR image";
     std::filesystem::create_directories(outputFolder);
 
-    shader.load(GL_COMPUTE_SHADER, "../shaders/compute.glsl");
+    shader.load(GL_COMPUTE_SHADER, "../shaders/converter.glsl");
     shader.assemble();
     shader.use();
 
@@ -60,6 +61,7 @@ void Skybox::init(const char* hdrImagePath, std::string outputFolder)
     glBindImageTexture(4, textureArray, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     // Run the compute shader
+    shader.set<glm::vec3>("hdrSize", glm::vec3(w, h, channels));
     glDispatchCompute(cubemapSize, cubemapSize, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
