@@ -20,7 +20,7 @@ uniform struct PhongMaps
 } material;
 
 uniform bool isFramebuffer;
-uniform uint modelId;
+uniform float modelId;
 
 out vec4 color;
 
@@ -64,7 +64,7 @@ void main()
 {
     // Output the normalized model id
     if (isFramebuffer) {
-        float n = 1.0 / float(modelId);
+        float n = 1.0 / modelId;
         color = vec4(n, n, n, 1.0);
         return;
     }

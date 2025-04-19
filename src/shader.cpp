@@ -110,9 +110,9 @@ void Shader::assemble()
 }
 
 template void Shader::set<int>(std::string name, int value);
+template void Shader::set<float>(std::string name, float value);
 template void Shader::set<glm::mat4>(std::string name, glm::mat4 value);
 template void Shader::set<glm::vec3>(std::string name, glm::vec3 value);
-template void Shader::set<unsigned int>(std::string name, unsigned int value);
 
 template <typename T>
 void Shader::set(std::string name, T value)
@@ -124,8 +124,8 @@ void Shader::set(std::string name, T value)
         glUniformMatrix4fv(address, 1, GL_FALSE, glm::value_ptr(value));
     if constexpr (std::is_same<T, int>::value)
         glUniform1i(address, value);
-    if constexpr (std::is_same<T, unsigned int>::value)
-        glUniform1ui(address, value);
+    if constexpr (std::is_same<T, float>::value)
+        glUniform1f(address, value);
 }
 
 void Shader::createBuffer(std::string name, int binding, int allocationSize)

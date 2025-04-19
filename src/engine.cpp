@@ -22,13 +22,12 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
-    skybox.init("../assets/hdr/brown_photostudio_01_4k.hdr", "../assets/hdr/brown_photostudio_01_4k/");
-
+    skybox.init("../assets/hdr/brown_photostudio_01_4k.hdr", "../assets/brown_photostudio_01_4k/");
     framebuffer.init(viewport.x, viewport.y);
     camera.init(glm::vec3(0.0), 3, viewport.x, viewport.y);
 
-    shader.load(GL_VERTEX_SHADER, "../shaders/default_vertex.glsl");
-    shader.load(GL_FRAGMENT_SHADER, "../shaders/default_fragment.glsl");
+    shader.load(GL_VERTEX_SHADER, "../src/shaders/default/vertex.glsl");
+    shader.load(GL_FRAGMENT_SHADER, "../src/shaders/default/fragment.glsl");
     shader.assemble();
     shader.use();
 
@@ -45,8 +44,9 @@ void Engine::cleanup()
 {
     for (Model& model : models)
         model.cleanup();
-    shader.cleanup();
     framebuffer.cleanup();
+    skybox.cleanup();
+    shader.cleanup();
     pool.terminate();
 }
 
@@ -149,7 +149,7 @@ void Engine::drawGUI()
     }
 
     ImGui::Separator();
-    ImGui::Text(model.getName().c_str());
+    ImGui::Text("%s", model.getName().c_str());
     ImGui::SameLine();
     if (ImGui::Button(model.animationPlaying() ? "Pause" : "Play"))
         model.toggleAnimation();
@@ -196,7 +196,7 @@ void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
             model.setSize(glm::vec3(0.0, 1.0, 0.0), true);
             model.setPosition(glm::vec3(0.0, 0.0, 0.0));
         }
-        shader.set<unsigned int>("modelId", i + 1);
+        shader.set<float>("modelId", i + 1);
         model.draw(shader, timeInSeconds);
     }
 }
@@ -205,5 +205,5 @@ void Engine::draw(float timeInSeconds)
 {
     drawModels(true, timeInSeconds);
     drawModels(false, timeInSeconds);
-    //skybox.draw(camera.getProjection(), camera.getViewWithoutTranslation());
+    skybox.draw(camera.getProjection(), camera.getViewWithoutTranslation());
 }
