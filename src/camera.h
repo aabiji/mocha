@@ -54,7 +54,7 @@ public:
     // Zoom in (direction = 1) and out (direction = -1)
     void zoom(int direction)
     {
-        distance = std::max(3.0f, std::min(distance + direction, 15.0f));
+        distance = std::max(3.0f, std::min(distance + direction, 25.0f));
         updatePosition();
     }
 
@@ -73,7 +73,7 @@ private:
         float b = glm::radians(pitch);
         position = glm::vec3(
             sin(a) * cos(b) * distance,
-            sin(b) * distance + 0.5,
+            sin(b) * distance - 1.0,
             cos(a) * cos(b) * distance
         );
     }

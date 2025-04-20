@@ -24,7 +24,7 @@ void Engine::init(int width, int height, int panelSize)
 
     skybox.init("../assets/hdr/dancing_hall_4k.hdr", "../assets/dancing_hall/");
     framebuffer.init(viewport.x, viewport.y);
-    camera.init(glm::vec3(0.0), 3, viewport.x, viewport.y);
+    camera.init(glm::vec3(0.0), 15, viewport.x, viewport.y);
 
     shader.load(GL_VERTEX_SHADER, "../src/shaders/default/vertex.glsl");
     shader.load(GL_FRAGMENT_SHADER, "../src/shaders/default/fragment.glsl");
@@ -35,7 +35,7 @@ void Engine::init(int width, int height, int panelSize)
     shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
 
     pool.init(3);
-    loadModel("player", "../assets/characters/Barbarian.fbx", "../assets/characters/");
+    loadModel("player", "../assets/characters/Knight.fbx", "../assets/characters/");
     selectedModel = -1;
 }
 
@@ -100,9 +100,9 @@ void Engine::loadModel(std::string name, std::string path, std::string base)
 void Engine::initLights()
 {
     glm::vec3 positions[] = {
-        glm::vec3(0.0, 1.0, -3.0),
-        glm::vec3(0.0, 1.0, 3.0),
-        glm::vec3(-3.0, 1.0, 0.0),
+        glm::vec3( 0.0, 1.0, -3.0),
+        glm::vec3( 0.0, 1.0,  3.0),
+        glm::vec3(-3.0, 1.0,  0.0),
     };
 
     Light lights[3];
@@ -188,18 +188,9 @@ void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
 
     for (unsigned int i = 0; i < models.size(); i++) {
         Model& model = models[i];
-        // TODO: cut the floor and position the player at the "floor" of the skybox 
-        //       image based lighting????? (probably not)
-        //       load a 4k realistic human 3d model (orient correctly as well)
-        //       the engine's *basically* done, so move on to looking at mediapipe!
-        //       create a new branch...with a new markdown file for notes, ... yeah
-        if (model.isCalled("floor")) {
-            model.setSize(glm::vec3(10.0, 0.5, 10.0), false);
-            model.setPosition(glm::vec3(0.0, -0.5, 0.0));
-        }
         if (model.isCalled("player")) {
-            model.setSize(glm::vec3(0.0, 1.0, 0.0), true);
-            model.setPosition(glm::vec3(0.0, 0.0, 0.0));
+            model.setSize(glm::vec3(0.0, 5.0, 0.0), true);
+            model.setPosition(glm::vec3(0.0, -5.0, 0.0));
         }
         shader.set<float>("modelId", i + 1);
         model.draw(shader, timeInSeconds);

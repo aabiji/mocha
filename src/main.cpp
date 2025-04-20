@@ -37,6 +37,7 @@ struct App
     Engine engine;
     SDL_Window* window;
     SDL_GLContext context;
+    bool shouldRender;
 };
 
 SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
@@ -52,6 +53,7 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
     App* app = new App;
+    app->shouldRender = true;
 
     app->window = SDL_CreateWindow("mocha", 900, 600, SDL_WINDOW_OPENGL);
     if (app->window == nullptr)
@@ -89,6 +91,9 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
 SDL_AppResult SDL_AppIterate(void* state)
 {
     App* app = (App*)state;
+    if (!app->shouldRender)
+        return SDL_APP_CONTINUE;
+
     unsigned int startMs = SDL_GetTicks();
 
     app->engine.draw(double(SDL_GetTicks()) / 1000.0);
@@ -119,6 +124,11 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
 
         case SDL_EVENT_WINDOW_RESIZED:
             app->engine.resizeViewport(event->window.data1, event->window.data2);
+            break;
+
+        case SDL_EVENT_WINDOW_MINIMIZED:
+        case SDL_EVENT_WINDOW_RESTORED:
+            app->shouldRender = !app->shouldRender;
             break;
 
         case SDL_EVENT_KEY_DOWN:
