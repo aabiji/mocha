@@ -12,6 +12,6 @@ This concept could extend into a fully fledged game where
 you are rewarded for exercising.
 
 Project outline:
-- [x] **Engine**: responsible for rendering and animating the 3d models. Built from scratch using OpenGl.
-- [ ] **Human pose tracker**: responsible for obtaining information about the subject's skeleton in real time. Built using mediapipe.
-- [ ] **Bridge library**: responsible for connecting the engine and the human pose tracker.
+- [x] **Engine**: responsible for rendering and animating the 3d models
+- [ ] **Human pose tracker**: responsible for obtaining information about the subject's skeleton in real time
+- [ ] **Bridge library**: responsible for connecting the engine and the human pose tracker
