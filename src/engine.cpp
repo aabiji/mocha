@@ -22,7 +22,7 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
-    skybox.init("../assets/hdr/brown_photostudio_01_4k.hdr", "../assets/brown_photostudio_01_4k/");
+    skybox.init("../assets/hdr/dancing_hall_4k.hdr", "../assets/dancing_hall/");
     framebuffer.init(viewport.x, viewport.y);
     camera.init(glm::vec3(0.0), 3, viewport.x, viewport.y);
 
@@ -35,7 +35,6 @@ void Engine::init(int width, int height, int panelSize)
     shader.createBuffer("mvp", 2, sizeof(MVPTransforms));
 
     pool.init(3);
-    loadModel("floor", "../assets/cube.fbx", "");
     loadModel("player", "../assets/characters/Barbarian.fbx", "../assets/characters/");
     selectedModel = -1;
 }
@@ -189,6 +188,11 @@ void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
 
     for (unsigned int i = 0; i < models.size(); i++) {
         Model& model = models[i];
+        // TODO: cut the floor and position the player at the "floor" of the skybox 
+        //       image based lighting????? (probably not)
+        //       load a 4k realistic human 3d model (orient correctly as well)
+        //       the engine's *basically* done, so move on to looking at mediapipe!
+        //       create a new branch...with a new markdown file for notes, ... yeah
         if (model.isCalled("floor")) {
             model.setSize(glm::vec3(10.0, 0.5, 10.0), false);
             model.setPosition(glm::vec3(0.0, -0.5, 0.0));
