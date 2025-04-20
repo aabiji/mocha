@@ -61,7 +61,7 @@ void Mesh::draw(Shader& shader)
     for (auto& [sampler, texture] : textures) {
         glActiveTexture(GL_TEXTURE0 + index);
         shader.set<int>("material." + sampler, index);
-        glBindTexture(GL_TEXTURE_2D, texture.id);
+        glBindTexture(GL_TEXTURE_2D, *texture.id);
         index++;
     }
 
@@ -75,14 +75,15 @@ void Mesh::cleanup()
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
-    for (auto &t : textures) {
-        glDeleteTextures(1, &t.second.id);
-    }
 }
 
-Model::Model(std::string id, std::string path, std::string textureBasePath)
-{
+Model::Model(
+    TextureLoader* loader,
+    std::string id, std::string path, std::string basePath
+) {
     name = id;
+    textureBasePath = basePath;
+
     scale = glm::vec3(1.0);
     position = glm::vec3(0.0);
 
@@ -97,8 +98,8 @@ Model::Model(std::string id, std::string path, std::string textureBasePath)
     if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::string("Invalid model file");
 
-    textureLoader.setBasePath(textureBasePath);
     animator.load(scene);
+    textureLoader = loader;
 
     processNode(scene, scene->mRootNode);
 }
@@ -183,7 +184,8 @@ void Model::processMesh(const aiScene* scene, aiMesh* data)
 {
     Mesh mesh;
     mesh.initialized = false;
-    mesh.textures = textureLoader.get(scene, scene->mMaterials[data->mMaterialIndex]);
+    mesh.textures = textureLoader->get(
+            scene, scene->mMaterials[data->mMaterialIndex], textureBasePath);
 
     for (unsigned int i = 0; i < data->mNumFaces; i++) {
         for (unsigned int j = 0; j < data->mFaces[i].mNumIndices; j++) {
@@ -259,6 +261,4 @@ void Model::draw(Shader& shader, double timeInSeconds)
 
         mesh.draw(shader);
     }
-
-    textureLoader.cleanup(); // Don't need the texture pixels anymore
 }

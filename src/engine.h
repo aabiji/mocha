@@ -34,10 +34,11 @@ private:
     glm::vec2 viewport;
     int selectedModel;
 
+    Skybox skybox;
     Camera camera;
-    ThreadPool pool;
     Shader shader;
+    TextureLoader textureLoader;
     Framebuffer framebuffer;
     std::vector<Model> models;
-    Skybox skybox;
+    ThreadPool pool;
 };

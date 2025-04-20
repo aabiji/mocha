@@ -44,6 +44,7 @@ void Engine::cleanup()
 {
     for (Model& model : models)
         model.cleanup();
+    textureLoader.cleanup();
     framebuffer.cleanup();
     skybox.cleanup();
     shader.cleanup();
@@ -89,7 +90,7 @@ void Engine::loadModel(std::string name, std::string path, std::string base)
 {
     pool.dispatch([&, name, path, base] {
         try {
-            Model model(name, path, base);
+            Model model(&textureLoader, name, path, base);
             models.push_back(model);
         } catch (std::string msg) {
             log(ERROR, msg);

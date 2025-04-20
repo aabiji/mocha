@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#define FLOAT_EQUAL(x, y) ((abs(x - y)) < FLT_EPSILON)
+#define FLOAT_EQUAL(x, y) ((fabs(x - y)) < FLT_EPSILON)
 
 inline glm::vec2 toVec2(aiVector3D v)   { return glm::vec2(v.x, v.y); }
 inline glm::vec3 toVec3(aiVector3D v)   { return glm::vec3(v.x, v.y, v.z); }

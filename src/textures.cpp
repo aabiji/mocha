@@ -8,6 +8,9 @@
 // Load the texture pixels and metadata
 Texture::Texture(const aiTexture* data)
 {
+    id = new unsigned int;
+    *id = UINT_MAX;
+
     width = data->mWidth;
     height = data->mHeight;
     pixels = (unsigned char *)data->pcData;
@@ -26,6 +29,9 @@ Texture::Texture(const aiTexture* data)
 
 Texture::Texture(std::string path)
 {
+    id = new unsigned int;
+    *id = UINT_MAX;
+
     int channels = 0;
     pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
     if (pixels == nullptr)
@@ -36,17 +42,21 @@ Texture::Texture(std::string path)
 // Create an empty 1x1 texture
 Texture::Texture(unsigned char color)
 {
+    id = new unsigned int;
+    *id = UINT_MAX;
+
     format = GL_RGB;
     width = height = 1;
     pixels = new unsigned char[3]{ color, color, color };
 }
 
-// TODO: fix the double initialization -- if we'have a texture we got
-// from cache, we should just reference the id of the cached texture
 void Texture::init()
 {
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
+    if (*id != UINT_MAX)
+        return; // The texture object has already been created
+
+    glGenTextures(1, id);
+    glBindTexture(GL_TEXTURE_2D, *id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -54,6 +64,16 @@ void Texture::init()
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
                  GL_UNSIGNED_BYTE, pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
+    free(pixels);
+}
+
+void Texture::cleanup()
+{
+    if (id == nullptr)
+        return; // Already been cleaned up
+    glDeleteTextures(1, id);
+    delete id;
+    id = nullptr;
 }
 
 TextureLoader::TextureLoader()
@@ -76,19 +96,23 @@ TextureLoader::TextureLoader()
 void TextureLoader::cleanup()
 {
     for (auto& pair : defaults) {
-        free(pair.second.pixels);
+        pair.second.cleanup();
     }
-    defaults.clear();
 
     for (auto& pair : cache) {
-        free(pair.second.pixels);
+        pair.second.cleanup();
     }
+
+    defaults.clear();
     cache.clear();
 }
 
 // Get the textures that are defined in the material
-TextureMap TextureLoader::get(const aiScene* scene, const aiMaterial* material)
-{
+TextureMap TextureLoader::get(
+    const aiScene* scene,
+    const aiMaterial* material,
+    std::string basePath
+) {
     TextureMap textures;
     for (auto& [type, samplerName]: samplerNames) {
         if (material->GetTextureCount(type) == 0)

@@ -11,11 +11,11 @@ struct Texture
     Texture(std::string path);
     Texture() {}
 
-    // Initialize the OpenGL texture object
     void init();
+    void cleanup();
 
-    unsigned int id;
     int width, height, format;
+    unsigned int* id;
     unsigned char* pixels;
 };
 
@@ -25,11 +25,12 @@ class TextureLoader
 {
 public:
     TextureLoader();
-    TextureMap get(const aiScene* scene, const aiMaterial* material);
+    TextureMap get(
+        const aiScene* scene,
+        const aiMaterial* material,
+        std::string basePath);
     void cleanup();
-    void setBasePath(std::string path) { basePath = path; }
 private:
-    std::string basePath;
     TextureMap cache;
     TextureMap defaults;
     std::unordered_map<aiTextureType, std::string> samplerNames;

@@ -47,7 +47,10 @@ struct Mesh
 class Model
 {
 public:
-    Model(std::string id, std::string path, std::string textureBasePath);
+    Model(
+        TextureLoader* loader,
+        std::string id, std::string path, std::string basePath
+    );
     void draw(Shader& shader, double timeInSeconds);
     void cleanup();
 
@@ -71,11 +74,13 @@ private:
     void addBoneToVertex(Vertex& v, int boneId, float weight);
 
     std::string name;
+    std::string textureBasePath;
+
     glm::vec3 scale;
     glm::vec3 position;
     BoundingBox box;
 
     Animator animator;
     std::vector<Mesh> meshes;
-    TextureLoader textureLoader;
+    TextureLoader* textureLoader;
 };

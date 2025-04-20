@@ -131,7 +131,7 @@ void Skybox::createCubemapImages(const char* hdrImagePath, std::string outputFol
     free(pixels);
 
     // Setup the cube faces texture array
-    int cubemapSize = 512, numFaces = 6;
+    int cubemapSize = 1024, numFaces = 6;
     unsigned int textureArray;
     glGenTextures(1, &textureArray);
     glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
