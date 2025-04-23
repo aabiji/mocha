@@ -1,3 +1,4 @@
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -10,20 +11,69 @@
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/optional_debug_tools.h>
 
+// NOTE: I really do think we should just use the singlepose model
+
+constexpr int nearestMultiple(int x, int factor)
+{
+    return std::floor((x + factor) / factor) * factor;
+}
+
+struct Detection
+{
+    // The model detects 17 keypoints
+    // The x and y are normalized to a range of 0.0 and 1.0
+    // The order of the 17 keypoint joints are:
+    // [
+    //      nose, left eye, right eye, left ear, right ear,
+    //      left shoulder, right shoulder, left elbow, right elbow,
+    //      left wrist, right wrist, left hip, right hip, left knee,
+    //      right knee, left ankle, right ankle
+    // ]
+    struct { float y, x, score; } keypoints[17];
+
+    // The bounding box of the area that contains the person
+    // The coordinates are normalized to a range of 0.0 and 1.0
+    float ymin, xmin, ymax, xmax;
+
+    // The confidence score of the detection
+    float score;
+};
+
 int main()
 {
-    cv::Mat original, scaled, image;
-    original = cv::imread("../assets/dancer.jpg");
+    cv::Mat original, transformed;
+    original = cv::imread("../assets/kpop.webp");
     assert(original.empty() == false);
+    assert(original.channels() >= 3);
 
-    cv::Size target = cv::Size(192, 192);
-    float ratioX = float(original.size[0]) / float(target.width);
-    float ratioY = float(original.size[1]) / float(target.height);
+    // Resize and pad the top of the image such that the
+    // width and height of the image are multiples of 32
+    // For optimal model performance, the longer side
+    // has a length of 512
+    float w = original.size[0], h = original.size[1];
 
-    cv::resize(original, scaled, target);
-    cv::cvtColor(scaled, image, cv::COLOR_BGR2RGB);
+    cv::Size scaledSize = cv::Size(512, 512);
+    cv::Size paddedSize = cv::Size(512, 512);
 
-    auto model = tflite::FlatBufferModel::BuildFromFile("../assets/movenet_singlepose.tflite");
+    // Hmmm...this seems dodgy...
+    if (w > h) { // Horizontal scaling
+        scaledSize.height = h * (w / scaledSize.width);
+        paddedSize.height = nearestMultiple(scaledSize.height, 32);
+    } else {     // Vertical scaling
+        scaledSize.width = w * (h / scaledSize.height);
+        paddedSize.width = nearestMultiple(scaledSize.width, 32);
+    }
+
+    cv::resize(original, transformed, scaledSize);
+    cv::copyMakeBorder(
+        transformed, transformed, paddedSize.width - scaledSize.width,
+        0, 0, paddedSize.height - scaledSize.height, cv::BORDER_CONSTANT,
+        {0, 0, 0}
+    );
+
+    // Load the model interpreter
+    auto model =
+        tflite::FlatBufferModel::BuildFromFile("../assets/movenet_multipose.tflite");
     assert(model != nullptr);
 
     tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -32,47 +82,36 @@ int main()
     builder(&interpreter);
     assert(interpreter != nullptr);
 
+    // Load in our image into the input tensor. Since the input
+    // tensor's dynamic, we need to set its dimensions
+    auto dimensions = {1, paddedSize.height, paddedSize.width, 3};
+    assert(interpreter->ResizeInputTensorStrict(0, dimensions) == kTfLiteOk);
     assert(interpreter->AllocateTensors() == kTfLiteOk);
     memcpy(
         interpreter->typed_input_tensor<unsigned char>(0),
-        image.data,
-        image.total() * image.elemSize()
+        transformed.data,
+        transformed.total() * transformed.elemSize()
     );
     assert(interpreter->Invoke() == kTfLiteOk);
 
+    // Parse the model output
+    Detection detections[6]; // The model can detect up to 6 people
     float* output = interpreter->typed_output_tensor<float>(0);
+    assert(interpreter->output_tensor(0)->bytes == sizeof(detections));
+    memcpy(detections, output, sizeof(detections));
 
-    const int numKeypoints = 17;
-    const float confidenceThreshold = 0.3;
-    std::vector<cv::Point2f> keypoints;
-    for (int i = 0; i < numKeypoints; i++) {
-        float y = output[i * 3];
-        float x = output[i * 3 + 1];
-        float confidence = output[i * 3 + 2];
-        if (confidence > confidenceThreshold)
-            keypoints.push_back(cv::Point2f(x, y));
+    float confidenceThreshold = 0.3;
+    for (Detection detection : detections) {
+        if (detection.score < confidenceThreshold)
+            continue; // bogus detection
+
+        int xmin = detection.xmin * paddedSize.width;
+        int ymin = detection.ymin * paddedSize.height;
+        int xmax = detection.xmax * paddedSize.width;
+        int ymax = detection.ymax * paddedSize.height;
+        cv::rectangle(transformed, { xmin, ymin }, { xmax, ymax }, {0, 255, 0});
     }
-
-    cv::Scalar color = {0, 255, 0};
-    for (size_t i = 0; i < keypoints.size(); i++) {
-        auto& point = keypoints[i];
-        cv::Point coordinate = {
-            int(point.x * target.width * ratioX),
-            int(point.y * target.height * ratioY)
-        };
-        cv::circle(original, coordinate, 3, color);
-
-        if (i > 0) {
-            auto& prev = keypoints[i - 1];
-            cv::Point prevCoordinate = {
-                int(prev.x * target.width * ratioX),
-                int(prev.y * target.height * ratioY)
-            };
-            cv::line(original, prevCoordinate, coordinate, color);
-        }
-    }
-
-    cv::imwrite("../output.jpg", original);
+    cv::imwrite("../output.jpg", transformed);
 
     /*
     std::string name = "webcam";
