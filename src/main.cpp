@@ -1,5 +1,5 @@
-#include <cstring>
 #include <memory>
+#include <opencv2/core/utility.hpp>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
@@ -11,69 +11,83 @@
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/optional_debug_tools.h>
 
-// NOTE: I really do think we should just use the singlepose model
-
-constexpr int nearestMultiple(int x, int factor)
+struct Keypoint
 {
-    return std::floor((x + factor) / factor) * factor;
+    // the x and y are normalized to a range of 0 and 1
+    float y, x, score;
+    bool detected() { return score > 0.3; };
+};
+
+// the indexes of the keypoints that should be connected
+// the order of the 17 keypoint joints are:
+// [ nose, left eye, right eye, left ear, right ear,
+//   left shoulder, right shoulder, left elbow, right elbow,
+//   left wrist, right wrist, left hip, right hip, left knee,
+//   right knee, left ankle, right ankle ]
+const std::vector<std::pair<int, int>> keypointConnections = {
+    {0, 1}, {0, 2}, {1, 3}, {2, 4}, {5, 6}, {5, 7}, {7, 9},
+    {6, 8}, {8, 10}, {5, 11}, {6, 12}, {11, 12}, {11, 13},
+    {13, 15}, {12, 14}, {14, 16}
+};
+
+// movenet requires the input image to be 192x192
+const cv::Size targetSize = cv::Size(192, 192);
+
+std::vector<Keypoint> runInference(
+    std::unique_ptr<tflite::Interpreter>& interpreter,
+    cv::Mat frame
+) {
+    memcpy(
+        interpreter->typed_input_tensor<unsigned char>(0),
+        frame.data,
+        frame.total() * frame.elemSize()
+    );
+    assert(interpreter->Invoke() == kTfLiteOk);
+    float* output = interpreter->typed_output_tensor<float>(0);
+
+    std::vector<Keypoint> points;
+    for (int i = 0; i < 17; i++) {
+        points.push_back({output[i * 3], output[i * 3 + 1], output[i * 3 + 2]});
+    }
+    return points;
 }
 
-struct Detection
-{
-    // The model detects 17 keypoints
-    // The x and y are normalized to a range of 0.0 and 1.0
-    // The order of the 17 keypoint joints are:
-    // [
-    //      nose, left eye, right eye, left ear, right ear,
-    //      left shoulder, right shoulder, left elbow, right elbow,
-    //      left wrist, right wrist, left hip, right hip, left knee,
-    //      right knee, left ankle, right ankle
-    // ]
-    struct { float y, x, score; } keypoints[17];
+void drawSkeleton(
+    cv::Mat& image,
+    std::vector<Keypoint>& keypoints,
+    float xScale, float yScale
+) {
+    cv::Scalar color = {0, 255, 0};
 
-    // The bounding box of the area that contains the person
-    // The coordinates are normalized to a range of 0.0 and 1.0
-    float ymin, xmin, ymax, xmax;
+    for (Keypoint p : keypoints) {
+        if (!p.detected()) continue;
+        cv::Point xy = cv::Point(
+            p.x * targetSize.width  * xScale,
+            p.y * targetSize.height * yScale
+        );
+        cv::circle(image, xy, 3, color);
+    }
 
-    // The confidence score of the detection
-    float score;
-};
+    for (auto p : keypointConnections) {
+        cv::Point a = cv::Point(
+            keypoints[p.first].x * targetSize.width  * xScale,
+            keypoints[p.first].y * targetSize.height * yScale
+        );
+        cv::Point b = cv::Point(
+            keypoints[p.second].x * targetSize.width  * xScale,
+            keypoints[p.second].y * targetSize.height * yScale
+        );
+        if (keypoints[p.first].detected() &&
+            keypoints[p.second].detected())
+            cv::line(image, a, b, color, 2, cv::LINE_AA);
+    }
+}
 
 int main()
 {
-    cv::Mat original, transformed;
-    original = cv::imread("../assets/kpop.webp");
-    assert(original.empty() == false);
-    assert(original.channels() >= 3);
-
-    // Resize and pad the top of the image such that the
-    // width and height of the image are multiples of 32
-    // For optimal model performance, the longer side
-    // has a length of 512
-    float w = original.size[0], h = original.size[1];
-
-    cv::Size scaledSize = cv::Size(512, 512);
-    cv::Size paddedSize = cv::Size(512, 512);
-
-    // Hmmm...this seems dodgy...
-    if (w > h) { // Horizontal scaling
-        scaledSize.height = h * (w / scaledSize.width);
-        paddedSize.height = nearestMultiple(scaledSize.height, 32);
-    } else {     // Vertical scaling
-        scaledSize.width = w * (h / scaledSize.height);
-        paddedSize.width = nearestMultiple(scaledSize.width, 32);
-    }
-
-    cv::resize(original, transformed, scaledSize);
-    cv::copyMakeBorder(
-        transformed, transformed, paddedSize.width - scaledSize.width,
-        0, 0, paddedSize.height - scaledSize.height, cv::BORDER_CONSTANT,
-        {0, 0, 0}
-    );
-
     // Load the model interpreter
     auto model =
-        tflite::FlatBufferModel::BuildFromFile("../assets/movenet_multipose.tflite");
+        tflite::FlatBufferModel::BuildFromFile("../assets/movenet_singlepose.tflite");
     assert(model != nullptr);
 
     tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -81,42 +95,10 @@ int main()
     std::unique_ptr<tflite::Interpreter> interpreter;
     builder(&interpreter);
     assert(interpreter != nullptr);
-
-    // Load in our image into the input tensor. Since the input
-    // tensor's dynamic, we need to set its dimensions
-    auto dimensions = {1, paddedSize.height, paddedSize.width, 3};
-    assert(interpreter->ResizeInputTensorStrict(0, dimensions) == kTfLiteOk);
     assert(interpreter->AllocateTensors() == kTfLiteOk);
-    memcpy(
-        interpreter->typed_input_tensor<unsigned char>(0),
-        transformed.data,
-        transformed.total() * transformed.elemSize()
-    );
-    assert(interpreter->Invoke() == kTfLiteOk);
 
-    // Parse the model output
-    Detection detections[6]; // The model can detect up to 6 people
-    float* output = interpreter->typed_output_tensor<float>(0);
-    assert(interpreter->output_tensor(0)->bytes == sizeof(detections));
-    memcpy(detections, output, sizeof(detections));
-
-    float confidenceThreshold = 0.3;
-    for (Detection detection : detections) {
-        if (detection.score < confidenceThreshold)
-            continue; // bogus detection
-
-        int xmin = detection.xmin * paddedSize.width;
-        int ymin = detection.ymin * paddedSize.height;
-        int xmax = detection.xmax * paddedSize.width;
-        int ymax = detection.ymax * paddedSize.height;
-        cv::rectangle(transformed, { xmin, ymin }, { xmax, ymax }, {0, 255, 0});
-    }
-    cv::imwrite("../output.jpg", transformed);
-
-    /*
     std::string name = "webcam";
     int w = 700, h = 500;
-    const float fps = 1000.0 / 60.0;
 
     cv::VideoCapture camera(0);
     assert(camera.isOpened());
@@ -126,12 +108,25 @@ int main()
     cv::namedWindow(name, cv::WINDOW_NORMAL);
     cv::resizeWindow(name, w, h);
 
-    cv::Mat frame;
+    cv::Mat frame, scaled;
+    cv::TickMeter meter;
+
     while (true) {
+        meter.start();
         camera >> frame;
+
+        cv::resize(frame, scaled, targetSize);
+        auto keypoints = runInference(interpreter, scaled);
+
+        // Horizontal and vertical scaling factors
+        float xScale = float(frame.size[1]) / float(targetSize.width);
+        float yScale = float(frame.size[0]) / float(targetSize.height);
+        drawSkeleton(frame, keypoints, xScale, yScale);
+
         cv::imshow(name, frame);
-        if (cv::waitKey(fps) == 27)
+        meter.stop();
+
+        if (cv::waitKey(meter.getFPS()) == 27)
             break; // press escape to quit
     }
-    */
 }
