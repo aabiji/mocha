@@ -50,6 +50,8 @@ struct App
     Engine engine;
     SDL_Window* window;
     SDL_GLContext context;
+    SDL_Camera* camera;
+    bool canReadCamera;
     bool shouldRender;
 };
 
@@ -58,7 +60,7 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     (void)argc;
     (void)argv;
 
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_CAMERA);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -74,6 +76,24 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
 
     app->context = SDL_GL_CreateContext(app->window);
     if (app->context == nullptr)
+        log(ERROR, SDL_GetError());
+
+    int numCameras = 0;
+    SDL_CameraID* cameraIds = SDL_GetCameras(&numCameras);
+    if (numCameras == 0)
+        log(ERROR, SDL_GetError());
+
+    SDL_CameraSpec spec = {
+        .format = SDL_PIXELFORMAT_RGB24,
+        .colorspace = SDL_COLORSPACE_SRGB,
+        .width = 640,
+        .height = 480,
+        .framerate_numerator = 1000,
+        .framerate_denominator = 60
+    };
+    app->canReadCamera = false;
+    app->camera = SDL_OpenCamera(cameraIds[0], &spec);
+    if (app->camera == nullptr)
         log(ERROR, SDL_GetError());
 
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress))
@@ -106,6 +126,16 @@ SDL_AppResult SDL_AppIterate(void* state)
     App* app = (App*)state;
     if (!app->shouldRender)
         return SDL_APP_CONTINUE;
+
+    if (app->canReadCamera) {
+        unsigned long timestamp;
+        SDL_Surface* frame = SDL_AcquireCameraFrame(app->camera, &timestamp);
+        if (frame) {
+            // TODO: now do something with it...
+            std::cout << "Got webmcam frame!\n";
+            SDL_ReleaseCameraFrame(app->camera, frame);
+        }
+    }
 
     unsigned int startMs = SDL_GetTicks();
 
@@ -163,6 +193,14 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
                 app->engine.zoomCamera(event->wheel.y);
             break;
         }
+
+        case SDL_EVENT_CAMERA_DEVICE_DENIED:
+            log(WARN, "Usage of the webcam is required");
+            return SDL_APP_FAILURE;
+
+        case SDL_EVENT_CAMERA_DEVICE_APPROVED:
+            app->canReadCamera = true;
+            break;
     }
 
     return SDL_APP_CONTINUE;
@@ -177,6 +215,7 @@ void SDL_AppQuit(void* state, SDL_AppResult result)
     ImGui::DestroyContext();
 
     App* app = (App*)state;
+    SDL_CloseCamera(app->camera);
     SDL_GL_DestroyContext(app->context);
     SDL_DestroyWindow(app->window);
 
