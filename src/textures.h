@@ -3,19 +3,30 @@
 #include <assimp/scene.h>
 #include <unordered_map>
 
-struct Texture
+#include "shader.h"
+
+class Texture
 {
+public:
     // Load the pixel data
     Texture(const aiTexture* data);
     Texture(unsigned char color);
     Texture(std::string path);
+    Texture(int w, int h);
     Texture() {}
 
     void init();
     void cleanup();
 
-    int width, height, format;
+    void draw(Shader& shader, float x, float y, float windowWidth, float windowHeight);
+    void write(int x, int y, unsigned char* pixels);
+    
     unsigned int* id;
+private:
+    void createQuad(float windowWidth, float windowHeight);
+
+    unsigned int vao, vbo, ebo;
+    int width, height, format;
     unsigned char* pixels;
 };
 

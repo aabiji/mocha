@@ -12,9 +12,8 @@
 #include "log.h"
 
 /*
-TODO -- we have a working demo, we now need to integrate it into the engine:
-- Read frames from webcam using sdl3
-- Render those frames alongisde the engine's scene (at the bottom left corner of the window)
+TODO -- we have a working demo, we now need to integrate it into the engine:(for the texture, model and skybox)
+- Refactor so that there's a VAO class -- that handles the vbo and ebo 
 - Run inference on the model and draw the skeleton on the webcam frame
     - Maybe we can have a separate pose estimation module that outputs Keypoints
     - Maybe pull in ffmpeg to read keypoints from a video, so we can "replay" it,
@@ -128,11 +127,9 @@ SDL_AppResult SDL_AppIterate(void* state)
         return SDL_APP_CONTINUE;
 
     if (app->canReadCamera) {
-        unsigned long timestamp;
-        SDL_Surface* frame = SDL_AcquireCameraFrame(app->camera, &timestamp);
+        SDL_Surface* frame = SDL_AcquireCameraFrame(app->camera, nullptr);
         if (frame) {
-            // TODO: now do something with it...
-            std::cout << "Got webmcam frame!\n";
+            app->engine.handleWebcamFrame(frame->pixels);
             SDL_ReleaseCameraFrame(app->camera, frame);
         }
     }

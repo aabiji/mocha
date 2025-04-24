@@ -8,7 +8,7 @@ public:
     void init(int width, int height)
     {
         glGenFramebuffers(1, &fbo);
-        bind();
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
         // Attach the color buffer
         glGenTextures(1, &tex);
@@ -25,9 +25,9 @@ public:
         glGenRenderbuffers(1, &rbo);
         glBindRenderbuffer(GL_RENDERBUFFER, rbo);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
-                     width, height);
+                        width, height);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                     GL_RENDERBUFFER, rbo);
+                        GL_RENDERBUFFER, rbo);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         // Check if we've setup everything correctly
@@ -35,14 +35,14 @@ public:
         if (status != GL_FRAMEBUFFER_COMPLETE)
             throw "Incomplete frame buffer!";
 
-        unbind();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void cleanup()
     {
-        glDeleteFramebuffers(1, &fbo);
-        glDeleteTextures(1, &tex);
-        glDeleteRenderbuffers(1, &rbo);
+        if (fbo != UINT_MAX) glDeleteFramebuffers(1, &fbo);
+        if (tex != UINT_MAX) glDeleteTextures(1, &tex);
+        if (rbo != UINT_MAX) glDeleteRenderbuffers(1, &rbo);
     }
 
     void readPixel(int x, int y, float pixel[4])
@@ -52,10 +52,15 @@ public:
         unbind();
     }
 
-    void bind() { glBindFramebuffer(GL_FRAMEBUFFER, fbo); }
     void unbind() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+    void bind()
+    {
+        if (fbo == UINT_MAX)
+            throw "Uninitialized frame buffer";
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    }
 private:
-    unsigned int fbo; // frame buffer object
-    unsigned int rbo; // render buffer object
-    unsigned int tex; // texture object
+    unsigned int fbo = UINT_MAX; // frame buffer object
+    unsigned int rbo = UINT_MAX; // render buffer object
+    unsigned int tex = UINT_MAX; // texture object
 };

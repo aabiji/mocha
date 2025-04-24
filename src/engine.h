@@ -24,9 +24,10 @@ public:
     void zoomCamera(int deltaY);
 
     void handleClick(int mouseX, int mouseY);
+    void handleWebcamFrame(void* pixels);
 private:
     void loadModel(std::string name, std::string path, std::string base);
-    void drawModels(bool isFramebuffer, double timeInSeconds);
+    void drawModels(bool isidOverlay, double timeInSeconds);
     void initLights();
 
     int fps;
@@ -34,11 +35,16 @@ private:
     glm::vec2 viewport;
     int selectedModel;
 
-    Skybox skybox;
-    Camera camera;
     Shader shader;
+    Shader textureShader;
+
+    Camera camera;
+    Skybox skybox;
+
+    Texture webcamFrame;
     TextureLoader textureLoader;
-    Framebuffer framebuffer;
+    Framebuffer idOverlay; // Model id overlay
+
     std::vector<Model> models;
     ThreadPool pool;
 };

@@ -23,8 +23,15 @@ void Engine::init(int width, int height, int panelSize)
     resizeViewport(width, height);
 
     skybox.init("../assets/dancing_hall_4k.hdr", "../assets/dancing_hall/");
-    framebuffer.init(viewport.x, viewport.y);
     camera.init(glm::vec3(0.0), 15, viewport.x, viewport.y);
+    idOverlay.init(viewport.x, viewport.y);
+
+    webcamFrame = Texture(640, 480);
+    webcamFrame.init();
+
+    textureShader.load(GL_VERTEX_SHADER, "../src/shaders/texture/vertex.glsl");
+    textureShader.load(GL_FRAGMENT_SHADER, "../src/shaders/texture/fragment.glsl");
+    textureShader.assemble();
 
     shader.load(GL_VERTEX_SHADER, "../src/shaders/default/vertex.glsl");
     shader.load(GL_FRAGMENT_SHADER, "../src/shaders/default/fragment.glsl");
@@ -44,9 +51,11 @@ void Engine::cleanup()
     for (Model& model : models)
         model.cleanup();
     textureLoader.cleanup();
-    framebuffer.cleanup();
-    skybox.cleanup();
+    webcamFrame.cleanup();
+    idOverlay.cleanup();
+    textureShader.cleanup();
     shader.cleanup();
+    skybox.cleanup();
     pool.terminate();
 }
 
@@ -74,7 +83,7 @@ void Engine::handleClick(int mouseX, int mouseY)
     if (x < 0 || y < 0) return; // Invalid coordinates
 
     float pixel[4] = {100, 100, 100, 100};
-    framebuffer.readPixel(x, y, pixel);
+    idOverlay.readPixel(x, y, pixel);
     if (pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0) {
         selectedModel = -1;
         return; // The pixel is the same as the clear color
@@ -83,6 +92,11 @@ void Engine::handleClick(int mouseX, int mouseY)
     // Map back from a range of 0 to 1 to a range of 0 to INT_MAX
     int modelIndex = int(ceil((1.0 / pixel[0]))) - 1;
     selectedModel = modelIndex;
+}
+
+void Engine::handleWebcamFrame(void* pixels)
+{
+    webcamFrame.write(0, 0, (unsigned char*)pixels);
 }
 
 void Engine::loadModel(std::string name, std::string path, std::string base)
@@ -139,6 +153,7 @@ void Engine::drawGUI()
         return;
     }
 
+    assert(selectedModel < int(models.size()));
     Model& model = models[selectedModel];
     auto animations = model.animationNames();
     size_t current = model.getCurrentAnimation();
@@ -172,9 +187,9 @@ void Engine::drawGUI()
 void Engine::drawModels(bool isFramebuffer, double timeInSeconds)
 {
     if (isFramebuffer)
-        framebuffer.bind();
+        idOverlay.bind();
     else
-        framebuffer.unbind();
+        idOverlay.unbind();
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -201,5 +216,9 @@ void Engine::draw(float timeInSeconds)
 {
     drawModels(true, timeInSeconds);
     drawModels(false, timeInSeconds);
+
+    textureShader.use();
+    webcamFrame.draw(textureShader, 0, 0, 900, 500);
+
     skybox.draw(camera.getProjection(), camera.getViewWithoutTranslation());
 }
