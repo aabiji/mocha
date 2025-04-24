@@ -11,6 +11,19 @@
 #include "engine.h"
 #include "log.h"
 
+/*
+TODO -- we have a working demo, we now need to integrate it into the engine:
+- Read frames from webcam using sdl3
+- Render those frames alongisde the engine's scene (at the bottom left corner of the window)
+- Run inference on the model and draw the skeleton on the webcam frame
+    - Maybe we can have a separate pose estimation module that outputs Keypoints
+    - Maybe pull in ffmpeg to read keypoints from a video, so we can "replay" it,
+      instead of relying on the webcam to test the skeletal animation mapping
+    - Figure out how to map the changes in keypoints into bone transforms
+- When we figure out what realistic human model we'll use, we can write a small
+  script to download all the necessary assets automatically
+ */
+
 static void debugCallback(
     unsigned int source, unsigned int type, unsigned int id,
     unsigned int severity, int length, const char *message, const void *param)

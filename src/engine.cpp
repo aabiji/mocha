@@ -22,7 +22,7 @@ void Engine::init(int width, int height, int panelSize)
     sidePanelWidth = panelSize;
     resizeViewport(width, height);
 
-    skybox.init("../assets/hdr/dancing_hall_4k.hdr", "../assets/dancing_hall/");
+    skybox.init("../assets/dancing_hall_4k.hdr", "../assets/dancing_hall/");
     framebuffer.init(viewport.x, viewport.y);
     camera.init(glm::vec3(0.0), 15, viewport.x, viewport.y);
 

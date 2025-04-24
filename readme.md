@@ -34,7 +34,7 @@ yay -S opencv hdf5 vtk
 # place it into the assets folder: https://fonts.google.com/specimen/Roboto
 
 # Build and run
-cmake -S . -G Ninja -B build
+cmake -S . -G Ninja -B build -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cd build
 ninja && ./app
 ```
