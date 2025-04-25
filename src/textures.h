@@ -17,16 +17,12 @@ public:
 
     void init();
     void cleanup();
-
-    void draw(Shader& shader, float x, float y, float windowWidth, float windowHeight);
     void write(int x, int y, unsigned char* pixels);
-    
-    unsigned int* id;
-private:
-    void createQuad(float windowWidth, float windowHeight);
 
-    unsigned int vao, vbo, ebo;
-    int width, height, format;
+    unsigned int* id;
+    int width, height;
+private:
+    int format;
     unsigned char* pixels;
 };
 

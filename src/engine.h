@@ -9,7 +9,7 @@
 class Engine
 {
 public:
-    void init(int width, int height, int panelSize);
+    void init(int width, int height);
     void cleanup();
 
     void draw(float timeInSeconds);
@@ -35,11 +35,9 @@ private:
     glm::vec2 viewport;
     int selectedModel;
 
-    Shader shader;
-    Shader textureShader;
-
     Camera camera;
     Skybox skybox;
+    Shader shader;
 
     Texture webcamFrame;
     TextureLoader textureLoader;

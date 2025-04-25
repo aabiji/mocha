@@ -13,7 +13,7 @@
 
 /*
 TODO -- we have a working demo, we now need to integrate it into the engine:(for the texture, model and skybox)
-- Refactor so that there's a VAO class -- that handles the vbo and ebo 
+- Refactor so that there's a VAO class -- that handles the vbo and ebo
 - Run inference on the model and draw the skeleton on the webcam frame
     - Maybe we can have a separate pose estimation module that outputs Keypoints
     - Maybe pull in ffmpeg to read keypoints from a video, so we can "replay" it,
@@ -69,9 +69,11 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     App* app = new App;
     app->shouldRender = true;
 
-    app->window = SDL_CreateWindow("mocha", 900, 600, SDL_WINDOW_OPENGL);
+    int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    app->window = SDL_CreateWindow("mocha", 900, 600, flags);
     if (app->window == nullptr)
         log(ERROR, SDL_GetError());
+    SDL_ShowWindow(app->window);
 
     app->context = SDL_GL_CreateContext(app->window);
     if (app->context == nullptr)
@@ -100,7 +102,7 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     glDebugMessageCallback(debugCallback, 0);
 
     try {
-        app->engine.init(900, 600, 230);
+        app->engine.init(900, 600);
     } catch (std::string msg) {
         log(ERROR, msg);
     }
@@ -167,8 +169,11 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
             break;
 
         case SDL_EVENT_WINDOW_MINIMIZED:
+            app->shouldRender = false;
+            break;
+
         case SDL_EVENT_WINDOW_RESTORED:
-            app->shouldRender = !app->shouldRender;
+            app->shouldRender = true;
             break;
 
         case SDL_EVENT_KEY_DOWN:
@@ -192,7 +197,7 @@ SDL_AppResult SDL_AppEvent(void* state, SDL_Event* event)
         }
 
         case SDL_EVENT_CAMERA_DEVICE_DENIED:
-            log(WARN, "Usage of the webcam is required");
+            log(WARN, "Webcam usage is required");
             return SDL_APP_FAILURE;
 
         case SDL_EVENT_CAMERA_DEVICE_APPROVED:

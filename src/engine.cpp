@@ -11,7 +11,7 @@ struct Light
     float c, l, q;
 };
 
-void Engine::init(int width, int height, int panelSize)
+void Engine::init(int width, int height)
 {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -19,7 +19,7 @@ void Engine::init(int width, int height, int panelSize)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    sidePanelWidth = panelSize;
+    sidePanelWidth = width / 4;
     resizeViewport(width, height);
 
     skybox.init("../assets/dancing_hall_4k.hdr", "../assets/dancing_hall/");
@@ -28,10 +28,6 @@ void Engine::init(int width, int height, int panelSize)
 
     webcamFrame = Texture(640, 480);
     webcamFrame.init();
-
-    textureShader.load(GL_VERTEX_SHADER, "../src/shaders/texture/vertex.glsl");
-    textureShader.load(GL_FRAGMENT_SHADER, "../src/shaders/texture/fragment.glsl");
-    textureShader.assemble();
 
     shader.load(GL_VERTEX_SHADER, "../src/shaders/default/vertex.glsl");
     shader.load(GL_FRAGMENT_SHADER, "../src/shaders/default/fragment.glsl");
@@ -53,7 +49,6 @@ void Engine::cleanup()
     textureLoader.cleanup();
     webcamFrame.cleanup();
     idOverlay.cleanup();
-    textureShader.cleanup();
     shader.cleanup();
     skybox.cleanup();
     pool.terminate();
@@ -71,6 +66,7 @@ bool Engine::insideViewport(int mouseX, int mouseY)
 
 void Engine::resizeViewport(int width, int height)
 {
+    sidePanelWidth = width / 4;
     viewport.y = height;
     viewport.x = width - sidePanelWidth;
 }
@@ -136,51 +132,50 @@ void Engine::initLights()
 
 void Engine::drawGUI()
 {
+    double third = viewport.y / 3;
+
     ImGui::NewFrame();
 
-    int flags = ImGuiWindowFlags_NoTitleBar |
-                ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_NoMove;
-    ImGui::Begin("Info", nullptr, flags);
-
+    // Draw model information
+    ImGui::Begin("Model info", nullptr, ImGuiWindowFlags_NoDecoration);
+    ImGui::Text("%s", (std::to_string(fps) + " FPS").c_str());
+    ImGui::SetWindowSize(ImVec2(sidePanelWidth, third * 2));
     ImGui::SetWindowPos(ImVec2(0, 0));
-    ImGui::SetWindowSize(ImVec2(sidePanelWidth, viewport.y));
 
-    ImGui::Text("%s", ("FPS: " + std::to_string(fps)).c_str());
-    if (selectedModel == -1) {
-        ImGui::End();
-        ImGui::Render();
-        return;
-    }
+    if (selectedModel != -1) {
+        assert(selectedModel < int(models.size()));
+        Model& model = models[selectedModel];
+        auto animations = model.animationNames();
+        size_t current = model.getCurrentAnimation();
 
-    assert(selectedModel < int(models.size()));
-    Model& model = models[selectedModel];
-    auto animations = model.animationNames();
-    size_t current = model.getCurrentAnimation();
-    if (animations.size() == 0) { // No animations to play
-        ImGui::End();
-        ImGui::Render();
-        return;
-    }
+        if (animations.size() > 0) {
+            ImGui::Separator();
+            ImGui::Text("%s", model.getName().c_str());
+            ImGui::SameLine();
+            if (ImGui::Button(model.animationPlaying() ? "Pause" : "Play"))
+                model.toggleAnimation();
 
-    ImGui::Separator();
-    ImGui::Text("%s", model.getName().c_str());
-    ImGui::SameLine();
-    if (ImGui::Button(model.animationPlaying() ? "Pause" : "Play"))
-        model.toggleAnimation();
-
-    if (ImGui::BeginChild("##list", ImVec2(240, 0))) {
-        for (size_t i = 0; i < animations.size(); i++) {
-            bool selected = current == i;
-            if (ImGui::Selectable(animations[i].c_str(), selected))
-                model.setCurrentAnimation(i);
-            if (selected)
-                ImGui::SetItemDefaultFocus();
+            if (ImGui::BeginChild("##list", ImVec2(sidePanelWidth - 10, 0))) {
+                for (size_t i = 0; i < animations.size(); i++) {
+                    bool selected = current == i;
+                    if (ImGui::Selectable(animations[i].c_str(), selected))
+                        model.setCurrentAnimation(i);
+                    if (selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndChild();
+            }
         }
-        ImGui::EndChild();
     }
-
     ImGui::End();
+
+    // Draw webcam footage
+    ImGui::Begin("Webcam", nullptr, ImGuiWindowFlags_NoDecoration);
+    ImGui::SetWindowSize(ImVec2(sidePanelWidth, third));
+    ImGui::SetWindowPos(ImVec2(-3, third * 2 - 3));
+    ImGui::Image((ImTextureID)*webcamFrame.id, ImVec2(sidePanelWidth, third));
+    ImGui::End();
+
     ImGui::Render();
 }
 
@@ -216,9 +211,5 @@ void Engine::draw(float timeInSeconds)
 {
     drawModels(true, timeInSeconds);
     drawModels(false, timeInSeconds);
-
-    textureShader.use();
-    webcamFrame.draw(textureShader, 0, 0, 900, 500);
-
     skybox.draw(camera.getProjection(), camera.getViewWithoutTranslation());
 }
