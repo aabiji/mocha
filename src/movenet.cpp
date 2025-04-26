@@ -5,6 +5,7 @@
 #include <tensorflow/lite/core/interpreter_builder.h>
 #include <tensorflow/lite/core/kernels/register.h>
 #include <tensorflow/lite/core/model_builder.h>
+#include <tensorflow/lite/logger.h>
 #include <tensorflow/lite/optional_debug_tools.h>
 
 #include "movenet.h"
@@ -17,13 +18,14 @@ void MoveNet::init(const char* modelPath)
 
     tflite::ops::builtin::BuiltinOpResolver resolver;
     tflite::InterpreterBuilder builder(*model, resolver);
-    std::unique_ptr<tflite::Interpreter> interpreter;
     builder(&interpreter);
     if (interpreter == nullptr)
         throw "Failed to create the model interpreter";
 
     if (interpreter->AllocateTensors() != kTfLiteOk)
         throw "Failed to allocate the input tensors";
+
+    tflite::LoggerOptions::SetMinimumLogSeverity(tflite::TFLITE_LOG_SILENT);
 
     readyForNextFrame = true;
 }
@@ -43,8 +45,6 @@ std::vector<Keypoint> MoveNet::runInference(unsigned char* image, int width, int
     if (res == 0)
         throw "Couldn't resize the image down to the required size";
 
-    assert(interpreter != nullptr); // TODO: this fails?? ooh...plot twist!
-
     // pass in the input tensor and run inference
     memcpy(
         interpreter->typed_input_tensor<unsigned char>(0),
@@ -54,12 +54,10 @@ std::vector<Keypoint> MoveNet::runInference(unsigned char* image, int width, int
     if (interpreter->Invoke() != kTfLiteOk)
         throw "Failed to run inference with MoveNet";
 
-    // parse the model output
-    std::vector<Keypoint> points;
+    // parse the model output -- the 17 keypoints
+    std::vector<Keypoint> points(17);
     float* output = interpreter->typed_output_tensor<float>(0);
-    for (int i = 0; i < 17; i++) {
-        points.push_back({output[i * 3], output[i * 3 + 1], output[i * 3 + 2]});
-    }
+    memcpy(points.data(), output, sizeof(points));
 
     readyForNextFrame = true;
     return points;

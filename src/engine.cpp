@@ -145,20 +145,20 @@ void Engine::handleWebcamFrame(void* framePixels)
 {
     if (!movenet.ready()) return;
 
-    // Make a copy of the frame TODO: inefficient?
+    // Make of a copy of the frame so that we can free
+    // the surface sdl gives us right away
     int allocationSize = frameSize.x * frameSize.y * 3 * sizeof(unsigned char);
     unsigned char* copy = (unsigned char*)malloc(allocationSize);
     memcpy(copy, framePixels, allocationSize);
+
+    webcamFrame.write(0, 0, copy);
 
     pool.dispatch([copy, this](){
         auto keypoints = movenet.runInference(copy, frameSize.x, frameSize.y);
         for (Keypoint kp : keypoints) {
             if (kp.detected())
-                std::cout << kp.x << " " << kp.y << "\n";
+                std::cout << "KEYPOINT: " << kp.x << " " << kp.y << "\n";
         }
-
-        webcamFrame.write(0, 0, copy);
-
         free(copy);
     });
 }
