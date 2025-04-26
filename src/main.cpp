@@ -14,7 +14,7 @@
 /*
 TODO -- we have a working demo, we now need to integrate it into the engine:(for the texture, model and skybox)
 - Refactor so that there's a VAO class -- that handles the vbo and ebo
-- Run inference on the model and draw the skeleton on the webcam frame
+- Visualize the skeleton on the webcam frame
     - Maybe we can have a separate pose estimation module that outputs Keypoints
     - Maybe pull in ffmpeg to read keypoints from a video, so we can "replay" it,
       instead of relying on the webcam to test the skeletal animation mapping
@@ -48,10 +48,12 @@ struct App
 {
     Engine engine;
     SDL_Window* window;
+
     SDL_GLContext context;
+    bool shouldRender;
+
     SDL_Camera* camera;
     bool canReadCamera;
-    bool shouldRender;
 };
 
 SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
@@ -69,8 +71,11 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     App* app = new App;
     app->shouldRender = true;
 
+    int windowWidth = 900, windowHeight = 600;
+    int frameWidth = 640, frameHeight = 480;
+
     int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
-    app->window = SDL_CreateWindow("mocha", 900, 600, flags);
+    app->window = SDL_CreateWindow("mocha", windowWidth, windowHeight, flags);
     if (app->window == nullptr)
         log(ERROR, SDL_GetError());
     SDL_ShowWindow(app->window);
@@ -87,8 +92,8 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     SDL_CameraSpec spec = {
         .format = SDL_PIXELFORMAT_RGB24,
         .colorspace = SDL_COLORSPACE_SRGB,
-        .width = 640,
-        .height = 480,
+        .width = frameWidth,
+        .height = frameHeight,
         .framerate_numerator = 1000,
         .framerate_denominator = 60
     };
@@ -102,7 +107,7 @@ SDL_AppResult SDL_AppInit(void** state, int argc, char** argv)
     glDebugMessageCallback(debugCallback, 0);
 
     try {
-        app->engine.init(900, 600);
+        app->engine.init(windowWidth, windowHeight, frameWidth, frameHeight);
     } catch (std::string msg) {
         log(ERROR, msg);
     }

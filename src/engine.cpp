@@ -11,7 +11,7 @@ struct Light
     float c, l, q;
 };
 
-void Engine::init(int width, int height)
+void Engine::init(int width, int height, int frameWidth, int frameHeight)
 {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -26,7 +26,9 @@ void Engine::init(int width, int height)
     camera.init(glm::vec3(0.0), 15, viewport.x, viewport.y);
     idOverlay.init(viewport.x, viewport.y);
 
-    webcamFrame = Texture(640, 480);
+    movenet.init("../assets/movenet_singlepose.tflite");
+    frameSize = glm::vec2(frameWidth, frameHeight);
+    webcamFrame = Texture(frameSize.x, frameSize.y);
     webcamFrame.init();
 
     shader.load(GL_VERTEX_SHADER, "../src/shaders/default/vertex.glsl");
@@ -90,9 +92,75 @@ void Engine::handleClick(int mouseX, int mouseY)
     selectedModel = modelIndex;
 }
 
-void Engine::handleWebcamFrame(void* pixels)
+/*
+TODO: figure out how to draw on the imgui image
+
+// the indexes of the keypoints that should be connected
+// the order of the 17 keypoint joints are:
+// [ nose, left eye, right eye, left ear, right ear,
+//   left shoulder, right shoulder, left elbow, right elbow,
+//   left wrist, right wrist, left hip, right hip, left knee,
+//   right knee, left ankle, right ankle ]
+const std::vector<std::pair<int, int>> keypointConnections = {
+    {0, 1}, {0, 2}, {1, 3}, {2, 4}, {5, 6}, {5, 7}, {7, 9},
+    {6, 8}, {8, 10}, {5, 11}, {6, 12}, {11, 12}, {11, 13},
+    {13, 15}, {12, 14}, {14, 16}
+};
+
+void drawSkeleton(
+    cv::Mat& image,
+    std::vector<Keypoint>& keypoints
+) {
+    cv::Scalar color = {0, 255, 0};
+
+    float xScale = float(frame.size[1]) / float(targetSize.width);
+    float yScale = float(frame.size[0]) / float(targetSize.height);
+
+    for (Keypoint p : keypoints) {
+        if (!p.detected()) continue;
+        cv::Point xy = cv::Point(
+            p.x * targetSize.width  * xScale,
+            p.y * targetSize.height * yScale
+        );
+        cv::circle(image, xy, 3, color);
+    }
+
+    for (auto p : keypointConnections) {
+        cv::Point a = cv::Point(
+            keypoints[p.first].x * targetSize.width  * xScale,
+            keypoints[p.first].y * targetSize.height * yScale
+        );
+        cv::Point b = cv::Point(
+            keypoints[p.second].x * targetSize.width  * xScale,
+            keypoints[p.second].y * targetSize.height * yScale
+        );
+        if (keypoints[p.first].detected() &&
+            keypoints[p.second].detected())
+            cv::line(image, a, b, color, 2, cv::LINE_AA);
+    }
+}
+*/
+
+void Engine::handleWebcamFrame(void* framePixels)
 {
-    webcamFrame.write(0, 0, (unsigned char*)pixels);
+    if (!movenet.ready()) return;
+
+    // Make a copy of the frame TODO: inefficient?
+    int allocationSize = frameSize.x * frameSize.y * 3 * sizeof(unsigned char);
+    unsigned char* copy = (unsigned char*)malloc(allocationSize);
+    memcpy(copy, framePixels, allocationSize);
+
+    pool.dispatch([copy, this](){
+        auto keypoints = movenet.runInference(copy, frameSize.x, frameSize.y);
+        for (Keypoint kp : keypoints) {
+            if (kp.detected())
+                std::cout << kp.x << " " << kp.y << "\n";
+        }
+
+        webcamFrame.write(0, 0, copy);
+
+        free(copy);
+    });
 }
 
 void Engine::loadModel(std::string name, std::string path, std::string base)

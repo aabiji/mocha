@@ -29,6 +29,7 @@ add_executable(
     src/keyframes.cpp
     src/main.cpp
     src/model.cpp
+    src/movenet.cpp
     src/shader.cpp
     src/skybox.cpp
     src/textures.cpp
@@ -75,10 +76,6 @@ set(ASSIMP_INSTALL OFF)
 set(ASSIMP_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(assimp)
 target_link_libraries(app assimp)
-
-find_package(OpenCV REQUIRED)
-include_directories(app ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(app ${OpenCV_LIBS})
 
 # TODO: tensorflow-lite has been rebranded as LiteRT
 #       will need to migrate to the LiteRT repository
