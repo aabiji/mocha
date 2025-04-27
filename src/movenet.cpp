@@ -30,7 +30,7 @@ void MoveNet::init(const char* modelPath)
     readyForNextFrame = true;
 }
 
-std::vector<Keypoint> MoveNet::runInference(unsigned char* image, int width, int height)
+std::vector<Keypoint> MoveNet::runInference(unsigned char* image, glm::vec2 imageSize)
 {
     readyForNextFrame = false;
 
@@ -40,7 +40,7 @@ std::vector<Keypoint> MoveNet::runInference(unsigned char* image, int width, int
 
     // scaled down to the required size
     int res = stbir_resize_uint8(
-        image, width, height, 0,
+        image, imageSize.x, imageSize.y, 0,
         scaledImage, targetSize, targetSize, 0, 3);
     if (res == 0)
         throw "Couldn't resize the image down to the required size";
@@ -61,4 +61,12 @@ std::vector<Keypoint> MoveNet::runInference(unsigned char* image, int width, int
 
     readyForNextFrame = true;
     return points;
+}
+
+glm::vec2 MoveNet::getPosition(float x, float y, float originalWidth, float originalHeight)
+{
+    // The normalized position was derived from
+    // the 192x192x3 input tensor to the MoveNet model
+    glm::vec2 aspectRatio = glm::vec2(originalWidth / 192.0, originalHeight / 192.0);
+    return glm::vec2(x * 192.0 * aspectRatio.x, y * 192.0 * aspectRatio.y);
 }

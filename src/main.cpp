@@ -13,9 +13,7 @@
 
 /*
 TODO -- we have a working demo, we now need to integrate it into the engine:(for the texture, model and skybox)
-- Refactor so that there's a VAO class -- that handles the vbo and ebo
-- Visualize the skeleton on the webcam frame
-    - Maybe we can have a separate pose estimation module that outputs Keypoints
+- Read: https://en.wikipedia.org/wiki/3D_pose_estimation
     - Maybe pull in ffmpeg to read keypoints from a video, so we can "replay" it,
       instead of relying on the webcam to test the skeletal animation mapping
     - Figure out how to map the changes in keypoints into bone transforms

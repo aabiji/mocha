@@ -1,3 +1,4 @@
+#include "movenet.h"
 #define GLAD_GL_IMPLEMENTATION 1
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -27,6 +28,7 @@ void Engine::init(int width, int height, int frameWidth, int frameHeight)
     idOverlay.init(viewport.x, viewport.y);
 
     movenet.init("../assets/movenet_singlepose.tflite");
+    keypoints.clear();
     frameSize = glm::vec2(frameWidth, frameHeight);
     webcamFrame = Texture(frameSize.x, frameSize.y);
     webcamFrame.init();
@@ -92,55 +94,6 @@ void Engine::handleClick(int mouseX, int mouseY)
     selectedModel = modelIndex;
 }
 
-/*
-TODO: figure out how to draw on the imgui image
-
-// the indexes of the keypoints that should be connected
-// the order of the 17 keypoint joints are:
-// [ nose, left eye, right eye, left ear, right ear,
-//   left shoulder, right shoulder, left elbow, right elbow,
-//   left wrist, right wrist, left hip, right hip, left knee,
-//   right knee, left ankle, right ankle ]
-const std::vector<std::pair<int, int>> keypointConnections = {
-    {0, 1}, {0, 2}, {1, 3}, {2, 4}, {5, 6}, {5, 7}, {7, 9},
-    {6, 8}, {8, 10}, {5, 11}, {6, 12}, {11, 12}, {11, 13},
-    {13, 15}, {12, 14}, {14, 16}
-};
-
-void drawSkeleton(
-    cv::Mat& image,
-    std::vector<Keypoint>& keypoints
-) {
-    cv::Scalar color = {0, 255, 0};
-
-    float xScale = float(frame.size[1]) / float(targetSize.width);
-    float yScale = float(frame.size[0]) / float(targetSize.height);
-
-    for (Keypoint p : keypoints) {
-        if (!p.detected()) continue;
-        cv::Point xy = cv::Point(
-            p.x * targetSize.width  * xScale,
-            p.y * targetSize.height * yScale
-        );
-        cv::circle(image, xy, 3, color);
-    }
-
-    for (auto p : keypointConnections) {
-        cv::Point a = cv::Point(
-            keypoints[p.first].x * targetSize.width  * xScale,
-            keypoints[p.first].y * targetSize.height * yScale
-        );
-        cv::Point b = cv::Point(
-            keypoints[p.second].x * targetSize.width  * xScale,
-            keypoints[p.second].y * targetSize.height * yScale
-        );
-        if (keypoints[p.first].detected() &&
-            keypoints[p.second].detected())
-            cv::line(image, a, b, color, 2, cv::LINE_AA);
-    }
-}
-*/
-
 void Engine::handleWebcamFrame(void* framePixels)
 {
     if (!movenet.ready()) return;
@@ -154,7 +107,7 @@ void Engine::handleWebcamFrame(void* framePixels)
     webcamFrame.write(0, 0, copy);
 
     pool.dispatch([copy, this](){
-        auto keypoints = movenet.runInference(copy, frameSize.x, frameSize.y);
+        keypoints = movenet.runInference(copy, frameSize);
         for (Keypoint kp : keypoints) {
             if (kp.detected())
                 std::cout << "KEYPOINT: " << kp.x << " " << kp.y << "\n";
@@ -200,14 +153,17 @@ void Engine::initLights()
 
 void Engine::drawGUI()
 {
-    double third = viewport.y / 3;
-
     ImGui::NewFrame();
+    drawModelInfo();
+    drawWebcamVisualization();
+    ImGui::Render();
+}
 
-    // Draw model information
+void Engine::drawModelInfo()
+{
     ImGui::Begin("Model info", nullptr, ImGuiWindowFlags_NoDecoration);
     ImGui::Text("%s", (std::to_string(fps) + " FPS").c_str());
-    ImGui::SetWindowSize(ImVec2(sidePanelWidth, third * 2));
+    ImGui::SetWindowSize(ImVec2(sidePanelWidth, (viewport.y / 3) * 2));
     ImGui::SetWindowPos(ImVec2(0, 0));
 
     if (selectedModel != -1) {
@@ -235,16 +191,49 @@ void Engine::drawGUI()
             }
         }
     }
-    ImGui::End();
 
-    // Draw webcam footage
+    ImGui::End();
+}
+
+void Engine::drawWebcamVisualization()
+{
+    double third = viewport.y / 3;
+    ImVec2 size = ImVec2(sidePanelWidth, third);
+    ImVec2 base = ImVec2(-3, third * 2 - 3);
+    ImU32 color = ImGui::GetColorU32(ImVec4(0, 255, 0, 255));
+    auto drawList = ImGui::GetForegroundDrawList();
+
     ImGui::Begin("Webcam", nullptr, ImGuiWindowFlags_NoDecoration);
-    ImGui::SetWindowSize(ImVec2(sidePanelWidth, third));
-    ImGui::SetWindowPos(ImVec2(-3, third * 2 - 3));
-    ImGui::Image((ImTextureID)*webcamFrame.id, ImVec2(sidePanelWidth, third));
-    ImGui::End();
+    ImGui::SetWindowSize(size);
+    ImGui::SetWindowPos(base);
 
-    ImGui::Render();
+    ImGui::Image((ImTextureID)*webcamFrame.id, size);
+
+    // Draw the skeleton constructed from the keypoints on top of the image
+    for (Keypoint kp : keypoints) {
+        if (!kp.detected()) continue;
+        glm::vec2 p = movenet.getPosition(kp.x, kp.y, size.x, size.y);
+        drawList->AddCircleFilled({base.x + p.x, base.y + p.y}, 3, color);
+    }
+
+    for (auto [i, j] : keypointConnections) {
+        if (i >= int(keypoints.size()) || j >= int(keypoints.size()))
+            continue; // Out of range
+        if (!keypoints[i].detected() || !keypoints[j].detected())
+            continue; // Incomplete connection
+
+        glm::vec2 p1 = movenet.getPosition(
+            keypoints[i].x, keypoints[i].y, size.x, size.y);
+        glm::vec2 p2 = movenet.getPosition(
+            keypoints[j].x, keypoints[j].y, size.x, size.y);
+        drawList->AddLine(
+            {base.x + p1.x, base.y + p1.y},
+            {base.x + p2.x, base.y + p2.y},
+            color
+        );
+    }
+
+    ImGui::End();
 }
 
 void Engine::drawModels(bool isFramebuffer, double timeInSeconds)

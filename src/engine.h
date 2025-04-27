@@ -31,6 +31,9 @@ private:
     void drawModels(bool isidOverlay, double timeInSeconds);
     void initLights();
 
+    void drawModelInfo();
+    void drawWebcamVisualization();
+
     int fps;
     int sidePanelWidth;
     glm::vec2 viewport;
@@ -42,7 +45,9 @@ private:
 
     Texture webcamFrame;
     glm::vec2 frameSize;
+
     MoveNet movenet;
+    std::vector<Keypoint> keypoints;
 
     TextureLoader textureLoader;
     Framebuffer idOverlay; // Model id overlay
