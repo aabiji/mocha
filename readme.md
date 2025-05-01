@@ -1,10 +1,14 @@
 This is the branch of the project where I figure out how to do pose estimation.
 
-Model from [here](https://www.kaggle.com/models/google/movenet/tfLite/multipose-lightning-tflite-float16)
+We could just use BlazePose GHUM: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf https://github.com/google-research/google-research/
 
-[Keypoint diagram](https://camo.githubusercontent.com/d8518d66def15292c1027030bc452f847410e6d72fd79961fdf6a4eda40ece01/68747470733a2f2f73746f726167652e676f6f676c65617069732e636f6d2f6d6f76656e65742f636f636f2d6b6579706f696e74732d3530302e706e67)
+BlazePose model files (there's also "full" and "heavy" versions of the model): ONNX file Prototxt file We don't actually need prototxt file, just the onnx file
 
-Setup opencv on arch linux
+Example implementation: https://github.com/axinc-ai/ailia-models/blob/master/pose_estimation_3d/blazepose-fullbody/blazepose-fullbody.py
+
+We can just the ONNX runtime for C++ to run inference on the model.
+
+Install dependencies on arch linux
 ```bash
-yay -S opencv hdf5 vtk
+yay -S ffmpeg opencv hdf5 vtk onnxruntime openmpi
 ```
