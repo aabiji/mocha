@@ -3,7 +3,7 @@
         { // run with ctrl-shift-b
             "type": "cppbuild",
             "label": "run project",
-            "command": "ninja && ./app ../assets/videos/earthquake.mp4",
+            "command": "ninja && ./app",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },
