@@ -1,5 +1,13 @@
 # Mocha
 
+## THIS PROJECT WAS PUT ON HOLD!
+So a working pose estimation demo lives in the pose-estimation branch.
+Just have to then map that to the 3d model.
+However, I'm taking a break from this project to work on something else,
+since I've been working on this for 2+ months at this point.
+
+---
+
 ![Current state of the app](screenshot.png)
 
 Motion capture app. You record a video of someone moving
