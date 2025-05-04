@@ -6,7 +6,8 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/app",
-            "cwd": "${workspaceFolder}/build"
+            "cwd": "${workspaceFolder}/build",
+            "args": ["--webcam"]
         }
     ]
 }

@@ -77,14 +77,12 @@ public:
         }
     }
 
-    void inputFrame(float* pixels, int bufferSize)
-    {
-        std::copy(pixels, pixels + bufferSize, inputData.data());
-    }
-
     // Run inference on the model and return the result of the pose estimation
-    Pose runInference()
+    Pose runInference(float* pixelBuffer, int bufferSize)
     {
+        // update the input tensor
+        std::copy(pixelBuffer, pixelBuffer + bufferSize, inputData.data());
+
         // run inference
         Ort::RunOptions runOptions;
         session.Run(

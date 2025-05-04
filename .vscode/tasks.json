@@ -3,7 +3,7 @@
         { // run with ctrl-shift-b
             "type": "cppbuild",
             "label": "run project",
-            "command": "ninja && ./app",
+            "command": "ninja && ./app --webcam",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },

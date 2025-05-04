@@ -14,3 +14,10 @@ Install dependencies on arch linux
 ```bash
 yay -S ffmpeg opencv hdf5 vtk onnxruntime openmpi
 ```
+
+TODO:
+- write & publish tutorial
+- run inference on webcam footage
+- run inference on video & save keypoint data
+- replace movenet with blazepose in the engine
+- brainstorm new project ideas for hack club
